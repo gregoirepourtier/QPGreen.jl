@@ -44,3 +44,10 @@ function plot_grid()
 end
 
 plot_grid()
+
+
+using FFTW
+X = collect(1.0:5.0)
+Y = fft(X)
+res = real(ifft(Y))
+

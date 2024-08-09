@@ -1,6 +1,12 @@
+using Pkg
+
+Pkg.activate("test/Project.toml")
+
 using Test
 using GreenFunction
 using LinearAlgebra
+using GLMakie
+using StaticArrays
 
 
 function run_all_tests()
@@ -25,3 +31,16 @@ function run_all_tests()
 end
 
 run_all_tests()
+
+function plot_grid()
+
+    # Generate the meshgrid
+    x, y = (1, 1)
+    N = 4
+    grid_X, grid_Y = GreenFunction.gen_grid_FFT(x, y, N)
+
+    # Plot the meshgrid
+    meshgrid_plot = scatter(grid_X[:], grid_Y[:])
+end
+
+plot_grid()

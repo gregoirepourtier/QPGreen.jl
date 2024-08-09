@@ -1,0 +1,10 @@
+name = "GreenFunction"
+uuid = "8ff76263-3d2e-4b9c-88ff-2ca8b003e2a7"
+authors = ["gregoirepourtier <gpourtier@icloud.com>"]
+version = "0.1.0"
+
+[deps]
+InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

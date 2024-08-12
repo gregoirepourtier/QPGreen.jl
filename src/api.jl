@@ -22,9 +22,10 @@ function fm_method_preparation(x, alpha, c, c̃; grid_size=100)
     end
 
     # c) Calculate the values of Lₙ at the grid points by 2D IFFT
+    Lₙ = ifft(L̂ⱼ)
 
 
-
+    ## Question : FFT -> how to precise the basis functions that we are using  in the implementation ??
 
 
     # _fm_method()

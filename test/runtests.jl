@@ -55,14 +55,21 @@ function test_fm_method_preparation()
 
     x = SVector(10.0, 10.0)
     alpha = 0.3
-    c = 1.0
+    c = 0.6
     c̃ = 1.0
     k = 10.0
+    χ(x) = sin(x)
     χ_der(x) = cos(x)
 
-    res = GreenFunction.fm_method_preparation(x, alpha, c, c̃, k, χ_der; grid_size=32)
+    Yε(x) = cos(x)
+    Yε_der(x) = -sin(x)
+    Yε_der_2nd(x) = -cos(x)
+
+    res = GreenFunction.fm_method_preparation(x, alpha, c, c̃, k, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=32)
 
     res
 end
 
 @time test_fm_method_preparation()
+
+

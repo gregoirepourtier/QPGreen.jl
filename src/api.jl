@@ -4,29 +4,31 @@
 """
 function fm_method_preparation(x, α, c, c̃, k, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2nd::T4; grid_size=100,
                                ε=0.1) where {T1, T2, T3, T4}
+
     Dc_x1 = (-π, π)
     Dc_x2 = (-c̃, c̃)
 
+    total_pts = 4 * grid_size^2
+
     # Generate the grid
-    grid = gen_grid_FFT(Dc_x1[2], Dc_x2[2], grid_size)
+    grid_X, grid_Y = gen_grid_FFT(Dc_x1[2], Dc_x2[2], grid_size)
 
     set_of_pt_grid = Vector{Float64}[]
-    for i ∈ 1:length(grid[1])
-        push!(set_of_pt_grid, [grid[1][i], grid[2][i]])
+    for i ∈ 1:total_pts
+        push!(set_of_pt_grid, [grid_X[i], grid_Y[i]])
     end
 
-    evaluation_Φ₁ = reshape(Φ₁.(set_of_pt_grid, Yε_der, Yε_der_2nd), size(grid[1]))
-    evaluation_Φ₂ = reshape(Φ₂.(set_of_pt_grid, Yε_der, Yε_der_2nd), size(grid[1]))
+    # 1. Preparation step
+    evaluation_Φ₁ = reshape(Φ₁.(set_of_pt_grid, Yε_der, Yε_der_2nd), (2 * grid_size, 2 * grid_size))
+    evaluation_Φ₂ = reshape(Φ₂.(set_of_pt_grid, Yε_der, Yε_der_2nd), (2 * grid_size, 2 * grid_size))
 
     Φ̂₁ⱼ = fft(evaluation_Φ₁, 1)
     Φ̂₂ⱼ = fft(evaluation_Φ₂, 1)
 
-    fourier_coeffs_grid = zeros(Complex{Float64}, length(grid[1]))
-
-    # 1. Preparation step
-    for i ∈ 1:length(grid[1])
-        j₁ = grid[1][i]
-        j₂ = grid[2][i]
+    fourier_coeffs_grid = zeros(Complex{Float64}, total_pts)
+    for i ∈ 1:total_pts
+        j₁ = grid_X[i]
+        j₂ = grid_Y[i]
 
         # a) Calculate Fourier Coefficients K̂ⱼ
         K̂ⱼ = get_K̂ⱼ(x, j₁, j₂, c̃, α, χ_der, k)
@@ -39,11 +41,12 @@ function fm_method_preparation(x, α, c, c̃, k, χ_der::T1, Yε::T2, Yε_der::T
         fourier_coeffs_grid[i] = L̂ⱼ
     end
 
-    ifft(reshape(fourier_coeffs_grid, size(grid[1])), 1)
+    ifft(reshape(fourier_coeffs_grid, (2 * grid_size, 2 * grid_size)), 1)
 
     nothing
 
-    ## Question : FFT -> how to precise the basis functions that we are using  in the implementation ?? -> i guess multiply the results in order to obtain the chosen basis function ?
+    ## Question : FFT -> how to precise the basis functions that we are using  in the implementation ?? -> 
+    # I guess multiply the results in order to obtain the chosen basis function ?
     # _fm_method()
 end
 

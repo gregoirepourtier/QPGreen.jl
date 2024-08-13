@@ -2,32 +2,32 @@
 
 """
 """
-function fm_method_preparation(x, alpha, c, c̃; grid_size=100)
+function fm_method_preparation(x, alpha, c, c̃, k, χ_der::T; grid_size=100) where {T}
+    Dc_x1 = (-π, π)
+    Dc_x2 = (-c̃, c̃)
 
-    D_c_x1 = (-π, π)
-    D_c_x2 = (-c̃, c̃)
-
-    grid = gen_grid_FFT(D_c_x1[2], D_c_x2[2], grid_size)
+    # Generate the grid
+    grid = gen_grid_FFT(Dc_x1[2], Dc_x2[2], grid_size)
 
     # 1. Preparation step
-    # a) Calculate Fourier Coefficients K̂ⱼ
-    for j₁ ∈ grid[1], j₂ ∈ grid[2]
-        K̂ⱼ = get_K̂ⱼ(x, j₁, j₂, c̃, alpha, χ_der)
-    end
+    for i ∈ 1:length(grid[1])
+        j₁ = grid[1][i]
+        j₂ = grid[2][i]
 
-    # b) Calculate Fourier Coefficients L̂ⱼ
-    for j₁ ∈ grid[1], j₂ ∈ grid[2]
-        F̂₁ⱼ, F̂₂ⱼ = get_L̂_j
+        # a) Calculate Fourier Coefficients K̂ⱼ
+        K̂ⱼ = get_K̂ⱼ(x, j₁, j₂, c̃, alpha, χ_der, k)
+
+        # b) Calculate Fourier Coefficients L̂ⱼ
+        F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(x, j₁, j₂, c̃, alpha, χ_der, χ_der_2nd)
         L̂ⱼ = K̂ⱼ - F̂₁ⱼ + im * α * F̂₂ⱼ
+
+        # c) Calculate the values of Lₙ at the grid points by 2D IFFT
+        # Lₙ = ifft(L̂ⱼ)
     end
 
-    # c) Calculate the values of Lₙ at the grid points by 2D IFFT
-    Lₙ = ifft(L̂ⱼ)
-
+    nothing
 
     ## Question : FFT -> how to precise the basis functions that we are using  in the implementation ??
-
-
     # _fm_method()
 end
 

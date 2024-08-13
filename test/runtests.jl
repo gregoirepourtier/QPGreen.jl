@@ -30,24 +30,39 @@ function run_all_tests()
 
 end
 
-run_all_tests()
+# run_all_tests()
 
 function plot_grid()
 
     # Generate the meshgrid
     x, y = (1, 1)
-    N = 4
+    N = 32
     grid_X, grid_Y = GreenFunction.gen_grid_FFT(x, y, N)
 
     # Plot the meshgrid
     meshgrid_plot = scatter(grid_X[:], grid_Y[:])
 end
 
-plot_grid()
+# plot_grid()
+
+# using FFTW
+# X = collect(1.0:5.0)
+# Y = fft(X)
+# res = real(ifft(Y))
 
 
-using FFTW
-X = collect(1.0:5.0)
-Y = fft(X)
-res = real(ifft(Y))
+function test_fm_method_preparation()
 
+    x = SVector(10.0, 10.0)
+    alpha = 0.3
+    c = 1.0
+    c̃ = 1.0
+    k = 10.0
+    χ_der(x) = cos(x)
+
+    res = GreenFunction.fm_method_preparation(x, alpha, c, c̃, k, χ_der; grid_size=32)
+
+    res
+end
+
+@time test_fm_method_preparation()

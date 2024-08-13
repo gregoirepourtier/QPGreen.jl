@@ -1,5 +1,6 @@
 module GreenFunction
 
+using LinearAlgebra
 using SpecialFunctions
 using LazyGrids
 using FFTW

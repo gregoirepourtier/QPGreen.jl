@@ -73,25 +73,18 @@ x = [3.0, 1.0]
 
 
 x, y = (1, 1)
-N = 11
+N = 12
 using LazyGrids
-grid_test = ndgrid(0:(1 / (N - 1)):x, 0:(1 / (N - 1)):y)
-grid_test[1]
-grid_test[2]
-# getnnodes(grid)
-# set_of_pt_grid = Vector{Float64}[]
-# for i ∈ 1:length(grid_test[1])
-#     push!(set_of_pt_grid, [grid_test[1][i], grid_test[2][i]])
-# end
-(grid_test[1], grid_test[2])
+grid_test = ndgrid(-x:(1 / (N - 1)):x, -y:(1 / (N - 1)):y)
+
+set_of_pt_grid = Vector{Float64}[]
+for i ∈ 1:length(grid_test[1])
+    push!(set_of_pt_grid, [grid_test[1][i], grid_test[2][i]])
+end
 
 set_of_pt_grid
 
-Φ₁.(set_of_pt_grid,Yε_der, Yε_der_2nd)
-
-Φ₁.(set_of_pt_grid,Yε_der, Yε_der_2nd)
-# [grid_test[1], grid_test[2]]
-
+reshape(Φ₁.(set_of_pt_grid,Yε_der, Yε_der_2nd),(2*N-1,2*N-1))
 
 
 using FFTW
@@ -115,13 +108,36 @@ end
 res
 
 
-using LazyGrids
+using LazyGrids, LinearAlgebra
 x, y = (1, 1)
 N = 11
 
 grid_test = ndgrid(0:(1 / (N - 1)):x, 0:(1 / (N - 1)):y)
-grid_test[1]
-grid_test[2]
+
+x_1 = grid_test[1]
+x_2 = grid_test[2]
+x_1 .+ x_2
+
+
+
+
+set_of_pt_grid = Vector{Float64}[]
+for i ∈ 1:length(grid_test[1])
+    push!(set_of_pt_grid, [grid_test[1][i], grid_test[2][i]])
+end
+set_of_pt_grid
+
+norm.(set_of_pt_grid)
+
+reshape(norm.(set_of_pt_grid),(11,11))
+@. √(x_1^2 + x_2^2)
+
+
+norm.(grid_test)
+
+
+
+
 
 function test(x)
     x₁, x₂ = x
@@ -130,3 +146,19 @@ function test(x)
 end
 
 @time test(grid_test)
+
+
+
+using LazyGrids
+N = 32
+
+# Generate the grid
+grid = ndgrid(-π:(1 / (N - 1)):π, -1.0:(1 / (N - 1)):1.0)
+
+set_of_pt_grid = Vector{Float64}[]
+for i ∈ 1:length(grid[1])
+    push!(set_of_pt_grid, [grid[1][i], grid[2][i]])
+end
+
+reshape(set_of_pt_grid,size(grid[1]))
+

@@ -45,12 +45,6 @@ end
 
 # plot_grid()
 
-# using FFTW
-# X = collect(1.0:5.0)
-# Y = fft(X)
-# res = real(ifft(Y))
-
-
 function test_fm_method_preparation()
 
     x = SVector(10.0, 10.0)
@@ -71,5 +65,3 @@ function test_fm_method_preparation()
 end
 
 @time test_fm_method_preparation()
-
-

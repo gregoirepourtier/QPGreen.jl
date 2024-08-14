@@ -64,4 +64,5 @@ function test_fm_method_preparation()
     res
 end
 
-@time test_fm_method_preparation()
+test_fm_method_preparation()
+

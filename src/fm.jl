@@ -20,26 +20,32 @@ function get_K̂ⱼ(x, j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=3) whe
 
     ξ, w = gausslegendre(degree_legendre)
 
-    f₁(x) = exp(im * βⱼ₁ * x) * χ_der(x) * exp(-im * j₂ * π / c̃ * x)
-    f₂(x) = exp(im * βⱼ₁ * x) * χ_der(x) * exp(im * j₂ * π / c̃ * x)
+    f₁_K̂ⱼ(x) = exp(im * βⱼ₁ * x) * χ_der(x) * exp(-im * j₂ * π / c̃ * x)
+    f₂_K̂ⱼ(x) = exp(im * βⱼ₁ * x) * χ_der(x) * exp(im * j₂ * π / c̃ * x)
 
-    integral_1 = dot(w, quad.(f₁, ξ, 0, c̃))
-    integral_2 = dot(w, quad.(f₂, ξ, 0, c̃))
+    integral_1 = dot(w, quad.(f₁_K̂ⱼ, ξ, 0, c̃))
+    integral_2 = dot(w, quad.(f₂_K̂ⱼ, ξ, 0, c̃))
 
     return 1 / (2 * √(π * c̃)) * (1 / (αⱼ₁^2 + (j₂ * π / c̃)^2 - k^2) +
             1 / (2 * βⱼ₁ * (j₂ * π / c̃ - βⱼ₁)) * integral_1 -
             1 / (2 * βⱼ₁ * (j₂ * π / c̃ + βⱼ₁)) * integral_2)
 end
 
-function Φ₁(x, Yε_der, Yε_der_2nd)
-    x_norm = norm(x)
+function Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 
-    if x_norm ≠ 0
-        return (2 + log(x_norm)) * Yε_der(x_norm) / x_norm + Yε_der_2nd(x_norm) * log(x_norm)
+    result = zeros(total_pts)
+    for i ∈ 1:total_pts
+        @views x_norm = norm(x[i, :])
+
+        if x_norm ≠ 0
+            result[i] = (2 + log(x_norm)) * Yε_der(x_norm) / x_norm + Yε_der_2nd(x_norm) * log(x_norm)
+        end
     end
+
+    result
 end
 
-Φ₂(x, Yε_der, Yε_der_2nd) = x[1] * Φ₁(x, Yε_der, Yε_der_2nd)
+Φ₂(x, Yε_der, Yε_der_2nd, total_pts) = view(x, :, 1) .* Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 
 """
 """
@@ -51,8 +57,9 @@ function get_F̂ⱼ(x, j₁, j₂, c̃, α, ε, Yε::T1, Yε_der::T2, Yε_der_2n
     else # special case |j| = 0
         ξ, w = gausslegendre(3)
 
-        f₀(x) = x * log(x) * Yε(x)
-        integral = dot(w, quad.(f₀, ξ, 0, 2 * ε))
+        f₀_F̂ⱼ(x) = x * log(x) * Yε(x)
+
+        integral = dot(w, quad.(f₀_F̂ⱼ, ξ, 0, 2 * ε))
 
         F̂₁ⱼ = -1 / (2 * √(π * c̃)) * integral
         F̂₂ⱼ = 0

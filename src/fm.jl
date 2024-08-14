@@ -31,6 +31,9 @@ function get_K̂ⱼ(x, j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=3) whe
             1 / (2 * βⱼ₁ * (j₂ * π / c̃ + βⱼ₁)) * integral_2)
 end
 
+"""
+- x: given as a 2D array
+"""
 function Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 
     result = zeros(total_pts)
@@ -45,6 +48,9 @@ function Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
     result
 end
 
+"""
+- x: given as a 2D array
+"""
 Φ₂(x, Yε_der, Yε_der_2nd, total_pts) = view(x, :, 1) .* Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 
 """
@@ -67,3 +73,11 @@ function get_F̂ⱼ(x, j₁, j₂, c̃, α, ε, Yε::T1, Yε_der::T2, Yε_der_2n
 
     return F̂₁ⱼ, F̂₂ⱼ
 end
+
+"""
+"""
+function K(x)
+
+end
+
+G(x) = 1

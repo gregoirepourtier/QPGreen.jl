@@ -4,9 +4,9 @@ Yε(x) = cos(x)
 Yε_der(x) = -sin(x)
 Yε_der_2nd(x) = -cos(x)
 
-x = [3.0, 1.0]
-GreenFunction.Φ₁(x, Yε_der, Yε_der_2nd)
-GreenFunction.Φ₂(x, Yε_der, Yε_der_2nd)
+x = [3.0 1.0]
+GreenFunction.Φ₁(x, Yε_der, Yε_der_2nd, 1)
+GreenFunction.Φ₂(x, Yε_der, Yε_der_2nd, 1)
 
 grid_size = 5
 
@@ -66,22 +66,3 @@ for i ∈ 1:eachindex(A)
     res += exp(-im * 2 * π * (i - 1) * (component - 1) / length(A)) * A[i]
 end
 res
-
-using LinearAlgebra
-
-grid_X, grid_Y = GreenFunction.gen_grid_FFT(1.0, 1.0, 5) ; 
-
-@time res = zeros(10,10);
-function test!(res, grid_X, grid_Y)
-    for i ∈ 1:10
-        for j ∈ 1:10
-            res[i,j] = norm((grid_X[i,j], grid_Y[i,j]))
-        end
-    end
-end
-
-@time test!(res, grid_X, grid_Y)
-
-res
-
-norm([grid_X[5,7], grid_Y[5,7]])

@@ -59,7 +59,9 @@ function test_fm_method_preparation()
     Yε_der(x) = -sin(x)
     Yε_der_2nd(x) = -cos(x)
 
-    res = GreenFunction.fm_method_preparation(x, alpha, c, c̃, k, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=32)
+    csts = (alpha, c, c̃, k)
+
+    res = GreenFunction.fm_method_preparation(x, csts, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=32)
 
     res
 end

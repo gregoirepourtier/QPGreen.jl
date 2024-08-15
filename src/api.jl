@@ -1,6 +1,9 @@
 # API of the package 
 
 """
+    fm_method_preparation(csts, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=100, ε=0.1)
+
+Returns L_n
 """
 function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2nd::T4; grid_size=100, ε=0.1) where {T1, T2, T3, T4}
 
@@ -15,11 +18,11 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
     @assert N == 2 * grid_size&&M == 2 * grid_size "Problem dimensions"
 
     #### 1. Preparation step ####
-    evaluation_Φ₁ = reshape(Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (2 * grid_size, 2 * grid_size))
-    evaluation_Φ₂ = reshape(Φ₂(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (2 * grid_size, 2 * grid_size))
+    evaluation_Φ₁ = reshape(Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M))
+    evaluation_Φ₂ = reshape(Φ₂(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M))
 
-    Φ̂₁ⱼ = fft(evaluation_Φ₁, 1)
-    Φ̂₂ⱼ = fft(evaluation_Φ₂, 1)
+    Φ̂₁ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₁, 1)
+    Φ̂₂ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₂, 1)
 
     fourier_coeffs_grid = zeros(Complex{Float64}, N, M)
     for i ∈ 1:N
@@ -61,8 +64,10 @@ function fm_method_calculation(x, csts, Lₙ, Yε::T; nb_terms=100) where {T}
     # 2. Calculation
 
     if abs(x[2]) > c
+        @info "The point is outside the domain D_c"
         evaluation_GF = green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=nb_terms)
     else
+        @info "The point is inside the domain D_c"
         t = get_t(x[1])
 
         # Bicubic Interpolation to get Lₙ(t, x₂)

@@ -65,8 +65,25 @@ function test_evaluation_GF(x)
     calculation_result
 end
 
-x = SVector(10.0, 0.2)
-@time -test_evaluation_GF(x)
+x = SVector(10.0, 0.4)
+@time test_evaluation_GF(x)
 
 GreenFunction.green_function_eigfct_exp(x; nb_terms=1000)
 GreenFunction.green_function_img_exp(x; nb_terms=500000)
+
+
+#= 
+Choice of 
+    χ_der
+    Yε
+    Yε_der
+    Yε_der_2nd
+---> check the paper - build a polynomial function
+
+
+
+Implementation FFT and IFFT from Matlab
+Fourier Basis Functions
+
+---> verify the FFT and IFFT coefficient with some dummy functions first and then apply to our problem
+=#

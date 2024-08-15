@@ -8,14 +8,14 @@ Returns L_n
 function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2nd::T4; grid_size=100, ε=0.1) where {T1, T2, T3, T4}
 
     α, c, c̃, k = csts
-    total_pts = 4 * grid_size^2
+    total_pts = (2 * grid_size)^2 # (2N)² points
 
     # Generate the grid
     grid_X, grid_Y = gen_grid_FFT(π, c̃, grid_size)
     set_of_pt_grid = get_grid_pts(grid_X, grid_Y, total_pts)
     N, M = size(grid_X)
 
-    @assert N == 2 * grid_size&&M == 2 * grid_size "Problem dimensions"
+    @assert N==M==2*grid_size "Problem dimensions"
 
     #### 1. Preparation step ####
     evaluation_Φ₁ = reshape(Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M))

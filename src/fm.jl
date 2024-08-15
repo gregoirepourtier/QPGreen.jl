@@ -48,14 +48,14 @@ end
 
 """
 """
-function get_F̂ⱼ(j₁, j₂, c̃, ε, Yε::T, Φ̂₁ⱼ, Φ̂₂ⱼ) where {T}
+function get_F̂ⱼ(j₁, j₂, c̃, ε, Yε::T, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_legendre=3) where {T}
 
     if (j₁^2 + j₂^2) ≠ 0
         cst = j₁^2 + j₂^2 * π^2 / c̃^2
         F̂₁ⱼ = 1 / cst * (1 / (2 * √(π * c̃)) + 1 / (2 * π) * Φ̂₁ⱼ)
         F̂₂ⱼ = 1 / cst * (-2 * im * j₁ * F̂₁ⱼ + 1 / (2 * π) * Φ̂₂ⱼ)
     else # special case |j| = 0
-        ξ, w = gausslegendre(3)
+        ξ, w = gausslegendre(degree_legendre)
 
         f₀_F̂ⱼ(x) = x * log(x) * Yε(x)
 

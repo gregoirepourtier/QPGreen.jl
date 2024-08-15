@@ -77,25 +77,22 @@ end
 
 """
 """
-function K(Lₙ)
-
-end
-
-G(x) = 1
-
 function f₁(x, Yε::T) where {T}
     x_norm = norm(x)
 
     -1 / (2 * π) * log(x_norm) * Yε(x_norm)
 end
 
+"""
+"""
 function f₂(x, Yε::T) where {T}
     x_norm = norm(x)
 
     -1 / (2 * π) * x[1] * log(x_norm) * Yε(x_norm)
 end
 
-
+"""
+"""
 function get_t(x)
 
     _n = x[1] ÷ (2 * π)
@@ -106,10 +103,4 @@ function get_t(x)
     @assert x[1] == 2 * n * π + t&&t >= -π && t < π "Error finding t in get_t"
 
     t
-end
-
-"""
-"""
-function bicubic_interpolation()
-
 end

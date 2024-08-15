@@ -1,11 +1,4 @@
-# FFT-based algorithm for efficient computation of Green's functions for Helmholtz equation in 2D
-
-# """
-# """
-# function _fm_method()
-
-# end
-
+# FFT-based algorithm
 
 """
 """

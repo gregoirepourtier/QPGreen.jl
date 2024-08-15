@@ -14,8 +14,10 @@ function run_all_tests()
     x = SVector(10.0, 10.0)
     y = SVector(2.0, 2.0)
 
-    res_img = GreenFunction.green_function_img_exp(x - y; nb_terms=10)
-    res_eig = GreenFunction.green_function_eigfct_exp(x - y; nb_terms=10)
+    x - y
+
+    res_img = GreenFunction.green_function_img_exp(x - y; nb_terms=10000)
+    res_eig = GreenFunction.green_function_eigfct_exp(x - y; nb_terms=100)
 
     res1 = norm(res_img - res_eig)
 
@@ -45,26 +47,23 @@ end
 
 # plot_grid()
 
-function test_fm_method_preparation()
+function test_evaluation_GF(x)
 
-    x = SVector(10.0, 10.0)
-    alpha = 0.3
-    c = 0.6
-    c̃ = 1.0
-    k = 10.0
-    χ(x) = sin(x)
+    alpha, c, c̃, k = (0.3, 0.6, 1.0, 10.0)
+    csts = (alpha, c, c̃, k)
+
     χ_der(x) = cos(x)
 
     Yε(x) = cos(x)
     Yε_der(x) = -sin(x)
     Yε_der_2nd(x) = -cos(x)
 
-    csts = (alpha, c, c̃, k)
+    preparation_result = GreenFunction.fm_method_preparation(csts, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=32)
 
-    res = GreenFunction.fm_method_preparation(x, csts, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=32)
+    calculation_result = GreenFunction.fm_method_calculation(x, csts, preparation_result, Yε; nb_terms=32)
 
-    res
+    calculation_result
 end
 
-test_fm_method_preparation()
-
+x = SVector(10.0, 0.2)
+test_evaluation_GF(x)

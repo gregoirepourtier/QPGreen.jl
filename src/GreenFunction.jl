@@ -5,6 +5,7 @@ using SpecialFunctions
 using LazyGrids
 using FFTW
 using FastGaussQuadrature
+using Interpolations
 
 include("analytical.jl")
 include("utils.jl")

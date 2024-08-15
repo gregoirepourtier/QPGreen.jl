@@ -8,61 +8,58 @@ x = [3.0 1.0]
 GreenFunction.Φ₁(x, Yε_der, Yε_der_2nd, 1)
 GreenFunction.Φ₂(x, Yε_der, Yε_der_2nd, 1)
 
-grid_size = 5
 
-Dc_x1 = (-π, π)
-Dc_x2 = (-1.0, 1.0)
-
-total_pts = 4 * grid_size^2
-
-grid_X, grid_Y = GreenFunction.gen_grid_FFT(Dc_x1[2], Dc_x2[2], grid_size)
-
-set_of_pt_grid = zeros(total_pts, 2);
-set_of_pt_grid[:, 1] .= 1
-set_of_pt_grid[:, 1] .* ones(100) *2
-@time for i ∈ 1:total_pts
-    set_of_pt_grid[i, 1] = grid_X[i]
-    set_of_pt_grid[i, 2] = grid_Y[i]
-end
-
-res = zeros(total_pts)
-for i ∈ 1:total_pts
-    @views res[i] = norm(set_of_pt_grid[i,:])
-
-    GreenFunction.Φ₁.(set_of_pt_grid, Yε_der, Yε_der_2nd)
-end
-res
-norm(set_of_pt_grid[2,:])
-
-
-
-# 1. Preparation step
-evaluation_Φ₁ = reshape(GreenFunction.Φ₁.(set_of_pt_grid, Yε_der, Yε_der_2nd), (2 * grid_size, 2 * grid_size))
-
-
-# evaluation_Φ₂ = reshape(Φ₂.(set_of_pt_grid, Yε_der, Yε_der_2nd), (2 * grid_size, 2 * grid_size))
-
-
-
-
-
-
-
-
-
-
-
-A = reshape(collect(1.0:16), (4, 4))
-
+using FFTW
+A = reshape(collect(1.0:16.0), (4, 4))
 # A = collect(1.0:16);
-component = 5;
+
+component = 2;
 
 res1 = fft(A, 1) # [component]
-ifft(res1, 1)
-
+# ifft(res1, 1)
 
 res = 0
-for i ∈ 1:eachindex(A)
+for i ∈ 1:length(A)
     res += exp(-im * 2 * π * (i - 1) * (component - 1) / length(A)) * A[i]
 end
 res
+
+j = 1
+component = 4
+res = 0
+for i ∈ 1:size(A, 1)
+    res += exp(-im * 2 * π * (i - 1) * (component - 1) / size(A, 1)) * A[i, j]
+end
+res
+
+
+
+res = zeros(Complex{Float64}, size(A))
+res_tmp = 0
+for j ∈ 1:size(A, 1)
+    for component ∈ 1:size(A, 1)
+        for i ∈ 1:size(A, 1)
+            res_tmp += exp(-im * 2 * π * ((i - 1) * (component - 1) / size(A, 1))) * A[i, j]
+        end
+        res[component, j] = res_tmp
+        res_tmp = 0
+    end
+end
+res
+
+
+using Interpolations
+f(x, y) = im*log(x + y) + x
+xs = 1:0.2:5
+ys = 2:0.1:5
+A = [f(x, y) for x ∈ xs, y ∈ ys]
+
+# linear interpolation
+interp_linear = linear_interpolation((xs, ys), A)
+interp_linear(3, 2) == f(3, 2) # exactly log(3 + 2)
+isapprox(interp_linear(3.1, 2.1), f(3.1, 2.1); rtol=1e-3) # approximately log(3.1 + 2.1)
+
+# cubic spline interpolation
+interp_cubic = cubic_spline_interpolation((xs, ys), A)
+interp_cubic(3, 2) # exactly log(3 + 2)
+isapprox(interp_cubic(3.1, 2.1), f(3.1, 2.1); rtol=1e-7) # approximately log(3.1 + 2.1)

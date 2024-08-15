@@ -2,11 +2,9 @@
 
 """
 """
-function fm_method_preparation(x, csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2nd::T4; grid_size=100,
-                               ε=0.1) where {T1, T2, T3, T4}
+function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2nd::T4; grid_size=100, ε=0.1) where {T1, T2, T3, T4}
 
     α, c, c̃, k = csts
-
     total_pts = 4 * grid_size^2
 
     # Generate the grid
@@ -14,9 +12,9 @@ function fm_method_preparation(x, csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_de
     set_of_pt_grid = get_grid_pts(grid_X, grid_Y, total_pts)
     N, M = size(grid_X)
 
-    @assert N == 2*grid_size && M == 2*grid_size
+    @assert N == 2 * grid_size&&M == 2 * grid_size "Problem dimensions"
 
-    # 1. Preparation step
+    #### 1. Preparation step ####
     evaluation_Φ₁ = reshape(Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (2 * grid_size, 2 * grid_size))
     evaluation_Φ₂ = reshape(Φ₂(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (2 * grid_size, 2 * grid_size))
 
@@ -30,10 +28,10 @@ function fm_method_preparation(x, csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_de
             j₂ = grid_Y[i, j]
 
             # a) Calculate Fourier Coefficients K̂ⱼ
-            K̂ⱼ = get_K̂ⱼ(x, j₁, j₂, c̃, α, χ_der, k)
+            K̂ⱼ = get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k)
 
             # b) Calculate Fourier Coefficients L̂ⱼ
-            F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(x, j₁, j₂, c̃, α, ε, Yε, Yε_der, Yε_der_2nd, Φ̂₁ⱼ[i, j], Φ̂₂ⱼ[i, j])
+            F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, ε, Yε, Φ̂₁ⱼ[i, j], Φ̂₂ⱼ[i, j])
             L̂ⱼ = K̂ⱼ - F̂₁ⱼ + im * α * F̂₂ⱼ
 
             # c) Calculate the values of Lₙ at the grid points by 2D IFFT
@@ -41,35 +39,42 @@ function fm_method_preparation(x, csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_de
         end
     end
 
-    ifft(fourier_coeffs_grid, 1)
+    Lₙ = ifft(fourier_coeffs_grid, 1)
 
-    nothing
+
+    return Lₙ
 
     ## Question : FFT -> how to precise the basis functions that we are using  in the implementation ?? -> 
     # I guess multiply the results in order to obtain the chosen basis function ?
-    # _fm_method()
 end
 
 
 """
 """
-function fm_method_calculation(x, c, c̃, α, preparation_result)
+function fm_method_calculation(x, csts, Lₙ, Yε::T; nb_terms=100) where {T}
 
+    α, c, c̃, k = csts
+    N, M = size(Lₙ)
 
-    res1, res = preparation_results
+    @assert N==M "Problem dimensions"
 
     # 2. Calculation
 
     if abs(x[2]) > c
-        green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=100)
+        evaluation_GF = green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=nb_terms)
     else
-        t = get_t(x1)
+        t = get_t(x[1])
 
-        # Bicubic Interpolation or else to get Lₙ(t, x₂)
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        interp_cubic = cubic_spline_interpolation((range(-π, π; length=N), range(-c̃, c̃; length=N)), Lₙ)
+        Lₙ_t_x₂ = interp_cubic(t, x[2])
 
         # Get K(t, x₂)
+        K_t_x₂ = Lₙ_t_x₂ + f₁((t, x[2]), Yε) - im * α * f₂((t, x[2]), Yε)
 
         # Calculate the approximate value of G(x)
-    end
+        G_x = exp(im * α * x[1]) * K_t_x₂
 
+        return G_x
+    end
 end

@@ -13,7 +13,7 @@ fourier_basis(x, j₁, j₂, c̃) = 1 / (2 * √(π * c̃)) * exp(im * j₁ * x[
 
 """
 """
-function get_K̂ⱼ(x, j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=3) where {T}
+function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=3) where {T}
 
     αⱼ₁ = α + j₁
     βⱼ₁ = abs(αⱼ₁) <= k ? √(k^2 - αⱼ₁^2) : im * √(αⱼ₁^2 - k^2)
@@ -32,7 +32,7 @@ function get_K̂ⱼ(x, j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=3) whe
 end
 
 """
-- x: given as a 2D array
+  - x: given as a 2D array
 """
 function Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 
@@ -49,17 +49,18 @@ function Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 end
 
 """
-- x: given as a 2D array
+  - x: given as a 2D array
 """
 Φ₂(x, Yε_der, Yε_der_2nd, total_pts) = view(x, :, 1) .* Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 
 """
 """
-function get_F̂ⱼ(x, j₁, j₂, c̃, α, ε, Yε::T1, Yε_der::T2, Yε_der_2nd::T3, Φ̂₁ⱼ, Φ̂₂ⱼ) where {T1, T2, T3}
+function get_F̂ⱼ(j₁, j₂, c̃, ε, Yε::T, Φ̂₁ⱼ, Φ̂₂ⱼ) where {T}
 
     if (j₁^2 + j₂^2) ≠ 0
-        F̂₁ⱼ = 1 / (j₁^2 + j₂^2 * π^2 / c̃^2) * (1 / (2 * √(π * c̃)) + 1 / (2 * π) * Φ̂₁ⱼ)
-        F̂₂ⱼ = 1 / (j₁^2 + j₂^2 * π^2 / c̃^2) * (-2 * im * j₁ * F̂₁ⱼ + 1 / (2 * π) * Φ̂₂ⱼ)
+        cst = j₁^2 + j₂^2 * π^2 / c̃^2
+        F̂₁ⱼ = 1 / cst * (1 / (2 * √(π * c̃)) + 1 / (2 * π) * Φ̂₁ⱼ)
+        F̂₂ⱼ = 1 / cst * (-2 * im * j₁ * F̂₁ⱼ + 1 / (2 * π) * Φ̂₂ⱼ)
     else # special case |j| = 0
         ξ, w = gausslegendre(3)
 
@@ -76,8 +77,39 @@ end
 
 """
 """
-function K(x)
+function K(Lₙ)
 
 end
 
 G(x) = 1
+
+function f₁(x, Yε::T) where {T}
+    x_norm = norm(x)
+
+    -1 / (2 * π) * log(x_norm) * Yε(x_norm)
+end
+
+function f₂(x, Yε::T) where {T}
+    x_norm = norm(x)
+
+    -1 / (2 * π) * x[1] * log(x_norm) * Yε(x_norm)
+end
+
+
+function get_t(x)
+
+    _n = x[1] ÷ (2 * π)
+    _t = x[1] % (2 * π)
+
+    (n, t) = -π <= x[1] % (2 * π) < π ? (_n, _t) : (_n + 1, x[1] - 2 * (_n + 1) * π)
+
+    @assert x[1] == 2 * n * π + t&&t >= -π && t < π "Error finding t in get_t"
+
+    t
+end
+
+"""
+"""
+function bicubic_interpolation()
+
+end

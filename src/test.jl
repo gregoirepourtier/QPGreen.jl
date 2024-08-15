@@ -49,7 +49,7 @@ res
 
 
 using Interpolations
-f(x, y) = im*log(x + y) + x
+f(x, y) = im * log(x + y) + x
 xs = 1:0.2:5
 ys = 2:0.1:5
 A = [f(x, y) for x ∈ xs, y ∈ ys]
@@ -63,3 +63,12 @@ isapprox(interp_linear(3.1, 2.1), f(3.1, 2.1); rtol=1e-3) # approximately log(3.
 interp_cubic = cubic_spline_interpolation((xs, ys), A)
 interp_cubic(3, 2) # exactly log(3 + 2)
 isapprox(interp_cubic(3.1, 2.1), f(3.1, 2.1); rtol=1e-7) # approximately log(3.1 + 2.1)
+
+
+using FastGaussQuadrature, LinearAlgebra
+
+x, w = gausslegendre(5)
+f(x) = x^4 * (1 - x)^4
+quad(f::T, x, a, b) where {T} = (b - a) / 2 * f((b - a) / 2 * x + (a + b) / 2)
+I = dot(w, quad.(f, x, 0, 1))
+I ≈ 1/630

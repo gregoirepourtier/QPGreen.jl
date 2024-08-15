@@ -72,6 +72,17 @@ GreenFunction.green_function_eigfct_exp(x; nb_terms=1000)
 GreenFunction.green_function_img_exp(x; nb_terms=500000)
 
 
+
+c̃ = 2.0
+c = 1.0
+x = collect((-c̃ - 1.0):0.01:(c̃ + 1.0));
+y = GreenFunction.build_χ.(x, c̃, c);
+
+f = Figure()
+ax = Axis(f[1, 1]; xticks=(-c̃ - 1.0):0.5:(c̃ + 1.0))
+lines!(ax, x, y)
+
+
 #= 
 Choice of 
     χ_der
@@ -86,4 +97,6 @@ Implementation FFT and IFFT from Matlab
 Fourier Basis Functions
 
 ---> verify the FFT and IFFT coefficient with some dummy functions first and then apply to our problem
+fft-shifted
+
 =#

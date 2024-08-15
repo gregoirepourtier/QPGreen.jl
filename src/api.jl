@@ -83,3 +83,64 @@ function fm_method_calculation(x, csts, Lₙ, Yε::T; nb_terms=100) where {T}
         return G_x
     end
 end
+
+"""
+"""
+function build_χ(x, c̃, c)
+
+    g(x) = x^5 * (1 - x)^5
+    ξ, w = gausslegendre(5)
+
+    integral_left = dot(w, quad.(g, ξ, -(c̃ + c) / 2, -c))
+    cst_left = 1 / integral_left
+
+    integral_right = dot(w, quad.(g, ξ, c, (c̃ + c) / 2))
+    cst_right = 1 / integral_right
+
+    if abs(x) >= (c̃ + c) / 2
+        return 0
+    elseif abs(x) <= c
+        return 1
+    elseif x < -c && x > -(c̃ + c) / 2
+        return cst_left * dot(w, quad.(g, ξ, -(c̃ + c) / 2, x))
+    else
+        x > c && x < (c̃ + c) / 2
+        return cst_right * dot(w, quad.(g, ξ, x, (c̃ + c) / 2))
+    end
+end
+
+"""
+"""
+function build_χ_der(x)
+
+
+
+    x -> cos(x)
+end
+
+"""
+"""
+function build_Yε(x)
+
+
+
+    x -> cos(x)
+end
+
+"""
+"""
+function build_Yε_der(x)
+
+
+
+    x -> cos(x)
+end
+
+"""
+"""
+function build_Yε_der_2nd(x)
+
+
+
+    x -> cos(x)
+end

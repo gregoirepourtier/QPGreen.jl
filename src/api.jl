@@ -111,36 +111,80 @@ end
 
 """
 """
-function build_χ_der(x)
+function build_χ_der(x, c̃, c)
+    g(x) = x^5 * (1 - x)^5
 
+    ξ, w = gausslegendre(5)
 
+    integral_left = dot(w, quad.(g, ξ, -(c̃ + c) / 2, -c))
+    cst_left = 1 / integral_left
 
-    x -> cos(x)
+    integral_right = dot(w, quad.(g, ξ, c, (c̃ + c) / 2))
+    cst_right = 1 / integral_right
+
+    if abs(x) >= (c̃ + c) / 2
+        return 0
+    elseif abs(x) <= c
+        return 0
+    elseif x < -c && x > -(c̃ + c) / 2
+        return cst_left * g.(x)
+    else
+        x > c && x < (c̃ + c) / 2
+        return cst_right * g(x)
+    end
 end
 
 """
 """
-function build_Yε(x)
+function build_Yε(x, ε)
 
+    g(x) = x^5 * (1 - x)^5
+    ξ, w = gausslegendre(5)
 
+    integral = dot(w, quad.(g, ξ, ε, 2 * ε))
+    cst = 1 / integral
 
-    x -> cos(x)
+    if x >= 2 * ε
+        return 0
+    elseif 0 <= x <= ε
+        return 1
+    else
+        return cst * dot(w, quad.(g, ξ, x, 2 * ε))
+    end
 end
 
 """
 """
-function build_Yε_der(x)
+function build_Yε_der(x, ε)
+    g(x) = x^5 * (1 - x)^5
+    ξ, w = gausslegendre(5)
 
+    integral = dot(w, quad.(g, ξ, ε, 2 * ε))
+    cst = 1 / integral
 
-
-    x -> cos(x)
+    if x >= 2 * ε
+        return 0
+    elseif 0 <= x <= ε
+        return 0
+    else
+        return cst * g(x)
+    end
 end
 
 """
 """
-function build_Yε_der_2nd(x)
+function build_Yε_der_2nd(x, ε)
+    g(x) = -5 * (x - 1)^4 * x^4 * (2x - 1)
+    ξ, w = gausslegendre(5)
 
+    integral = dot(w, quad.(g, ξ, ε, 2 * ε))
+    cst = 1 / integral
 
-
-    x -> cos(x)
+    if x >= 2 * ε
+        return 0
+    elseif 0 <= x <= ε
+        return 0
+    else
+        return cst * g(x)
+    end
 end

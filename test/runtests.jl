@@ -49,14 +49,14 @@ end
 
 function test_evaluation_GF(x)
 
-    alpha, c, c̃, k = (0.3, 0.6, 1.0, 10.0)
+    alpha, c, c̃, k, ε = (0.3, 0.6, 1.0, 10.0, 0.1)
     csts = (alpha, c, c̃, k)
 
-    χ_der(x) = cos(x)
+    χ_der(x) = GreenFunction.build_χ_der(x, c̃, c)
 
-    Yε(x) = cos(x)
-    Yε_der(x) = -sin(x)
-    Yε_der_2nd(x) = -cos(x)
+    Yε(x) = GreenFunction.build_Yε(x, ε)
+    Yε_der(x) = GreenFunction.build_Yε_der(x, ε)
+    Yε_der_2nd(x) = GreenFunction.build_Yε_der_2nd(x, ε)
 
     preparation_result = GreenFunction.fm_method_preparation(csts, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=32)
 
@@ -72,15 +72,27 @@ GreenFunction.green_function_eigfct_exp(x; nb_terms=1000)
 GreenFunction.green_function_img_exp(x; nb_terms=500000)
 
 
+## Test build cut-off functions and derivatives
+# c̃ = 2.0
+# c = 1.0
+# x = collect((-c̃ - 1.0):0.01:(c̃ + 1.0));
+# # y = GreenFunction.build_χ.(x, c̃, c);
+# # y = GreenFunction.build_χ_der.(x, c̃, c);
+# χ_der(x) = GreenFunction.build_χ(x, c̃, c)
+# y = χ_der.(x)
 
-c̃ = 2.0
-c = 1.0
-x = collect((-c̃ - 1.0):0.01:(c̃ + 1.0));
-y = GreenFunction.build_χ.(x, c̃, c);
+# f = Figure()
+# ax = Axis(f[1, 1]; xticks=(-c̃ - 1.0):0.5:(c̃ + 1.0))
+# lines!(ax, x, y)
 
-f = Figure()
-ax = Axis(f[1, 1]; xticks=(-c̃ - 1.0):0.5:(c̃ + 1.0))
-lines!(ax, x, y)
+# ε = 0.1
+# x = collect(0:0.01:1.0);
+# # y = GreenFunction.build_Yε.(x, ε);
+# # y = GreenFunction.build_Yε_der.(x, ε);
+# y = GreenFunction.build_Yε_der_2nd.(x, ε);
+# f = Figure()
+# ax = Axis(f[1, 1]; xticks=(0.0:0.1:1.0))
+# lines!(ax, x, y)
 
 
 #= 

@@ -23,6 +23,8 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
 
     Φ̂₁ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₁, 1)
     Φ̂₂ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₂, 1)
+    # Φ̂₁ⱼ = fftshift(Φ̂₁ⱼ)
+    # Φ̂₂ⱼ = fftshift(Φ̂₂ⱼ)
 
     fourier_coeffs_grid = zeros(Complex{Float64}, N, M)
     for i ∈ 1:N
@@ -44,11 +46,7 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
 
     Lₙ = ifft(fourier_coeffs_grid, 1)
 
-
     return Lₙ
-
-    ## Question : FFT -> how to precise the basis functions that we are using  in the implementation ?? -> 
-    # I guess multiply the results in order to obtain the chosen basis function ?
 end
 
 
@@ -91,20 +89,17 @@ function build_χ(x, c̃, c)
     g(x) = x^5 * (1 - x)^5
     ξ, w = gausslegendre(5)
 
-    integral_left = dot(w, quad.(g, ξ, -(c̃ + c) / 2, -c))
-    cst_left = 1 / integral_left
-
-    integral_right = dot(w, quad.(g, ξ, c, (c̃ + c) / 2))
-    cst_right = 1 / integral_right
-
     if abs(x) >= (c̃ + c) / 2
         return 0
     elseif abs(x) <= c
         return 1
     elseif x < -c && x > -(c̃ + c) / 2
+        integral_left = dot(w, quad.(g, ξ, -(c̃ + c) / 2, -c))
+        cst_left = 1 / integral_left
         return cst_left * dot(w, quad.(g, ξ, -(c̃ + c) / 2, x))
-    else
-        x > c && x < (c̃ + c) / 2
+    elseif x > c && x < (c̃ + c) / 2
+        integral_right = dot(w, quad.(g, ξ, c, (c̃ + c) / 2))
+        cst_right = 1 / integral_right
         return cst_right * dot(w, quad.(g, ξ, x, (c̃ + c) / 2))
     end
 end
@@ -116,20 +111,17 @@ function build_χ_der(x, c̃, c)
 
     ξ, w = gausslegendre(5)
 
-    integral_left = dot(w, quad.(g, ξ, -(c̃ + c) / 2, -c))
-    cst_left = 1 / integral_left
-
-    integral_right = dot(w, quad.(g, ξ, c, (c̃ + c) / 2))
-    cst_right = 1 / integral_right
-
     if abs(x) >= (c̃ + c) / 2
         return 0
     elseif abs(x) <= c
         return 0
     elseif x < -c && x > -(c̃ + c) / 2
+        integral_left = dot(w, quad.(g, ξ, -(c̃ + c) / 2, -c))
+        cst_left = 1 / integral_left
         return cst_left * g.(x)
-    else
-        x > c && x < (c̃ + c) / 2
+    elseif x > c && x < (c̃ + c) / 2
+        integral_right = dot(w, quad.(g, ξ, c, (c̃ + c) / 2))
+        cst_right = 1 / integral_right
         return cst_right * g(x)
     end
 end

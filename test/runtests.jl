@@ -65,7 +65,7 @@ function test_evaluation_GF(x)
     calculation_result
 end
 
-x = SVector(10.0, 0.4)
+x = SVector(5.0, 0.2)
 @time test_evaluation_GF(x)
 
 GreenFunction.green_function_eigfct_exp(x; nb_terms=1000)
@@ -95,20 +95,22 @@ GreenFunction.green_function_img_exp(x; nb_terms=500000)
 # lines!(ax, x, y)
 
 
-#= 
-Choice of 
-    χ_der
-    Yε
-    Yε_der
-    Yε_der_2nd
----> check the paper - build a polynomial function
+using FFTW
+f(x) = 5 * cos(x) + 12 * sin(x)
+
+x = collect((-π):0.1:π)
+y = f.(x)
+
+g(x) = (5 / 2 + 6 * im) * exp(-im * x) + (5 / 2 - 6 * im) * exp(im * x)
+y2 = g.(x)
+
+fft_res = fft(y)
+
+res = zeros(Complex{Float64}, length(y))
+for i ∈ 1:length(y)
+    res[i] = fft_res[i] * exp(-im *i *x[i])
+end
 
 
-
-Implementation FFT and IFFT from Matlab
-Fourier Basis Functions
-
----> verify the FFT and IFFT coefficient with some dummy functions first and then apply to our problem
-fft-shifted
-
-=#
+lines(x, y)
+lines!(x, real(y2))

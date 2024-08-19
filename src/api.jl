@@ -23,8 +23,8 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
 
     Φ̂₁ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₁, 1)
     Φ̂₂ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₂, 1)
-    # Φ̂₁ⱼ = fftshift(Φ̂₁ⱼ)
-    # Φ̂₂ⱼ = fftshift(Φ̂₂ⱼ)
+    Φ̂₁ⱼ = fftshift(Φ̂₁ⱼ, 1)
+    Φ̂₂ⱼ = fftshift(Φ̂₂ⱼ, 1)
 
     fourier_coeffs_grid = zeros(Complex{Float64}, N, M)
     for i ∈ 1:N

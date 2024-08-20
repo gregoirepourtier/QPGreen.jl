@@ -1,3 +1,5 @@
+# Simple test to check the correctness of the 2D FFT implementation
+
 include("GreenFunction.jl")
 using FFTW, LinearAlgebra
 
@@ -17,15 +19,39 @@ for i ∈ 1:(2 * N), j ∈ 1:(2 * N)
     cpt += 1
 end
 eval_f
+eval_f = fftshift(eval_f)
+eval_f
 
 ### 2D FFT ###
 fft_res_2D_API = 1 / (2 * √(π * c̃)) .* fft(eval_f)
 
 
 res_fft_2D = zeros(Complex{Float64}, size(eval_f))
+for component1 ∈ (-N):(N - 1), component2 ∈ (-N):(N - 1)
+    res_tmp = 0
+    for i ∈ (-N):(N - 1)
+        for j ∈ (-N):(N - 1)
+            res_tmp += eval_f[i + N + 1, j + N + 1] * 1 / (2 * √(π * c̃)) *
+                       exp(-im * (i - 1) * (component1 - 1) * π / N - im * (j - 1) * π * (component2 - 1) / N)
+        end
+    end
+    res_fft_2D[component1 + N + 1, component2 + N + 1] = res_tmp
+end
+
+t1 = res_fft_2D
+t2 = fftshift(fft_res_2D_API)
+isapprox(norm(t1), norm(t2); rtol=1e-10)
+
+
+t2
+fftshift(t2)
+
+
+## Normal Indices
+res_fft_2D = zeros(Complex{Float64}, size(eval_f))
 for component1 ∈ 1:(2 * N), component2 ∈ 1:(2 * N)
     res_tmp = 0
-    for i ∈ 1:(2 * N)
+    for i ∈ 1:1:(2 * N)
         for j ∈ 1:(2 * N)
             res_tmp += eval_f[i, j] * 1 / (2 * √(π * c̃)) *
                        exp(-im * (i - 1) * (component1 - 1) * π / N - im * (j - 1) * π * (component2 - 1) / N)
@@ -33,7 +59,4 @@ for component1 ∈ 1:(2 * N), component2 ∈ 1:(2 * N)
     end
     res_fft_2D[component1, component2] = res_tmp
 end
-
-t1 = res_fft_2D
-t2 = fft_res_2D_API
-isapprox(norm(t1), norm(t2); rtol=1e-10)
+res_fft_2D

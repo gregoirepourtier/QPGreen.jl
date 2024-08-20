@@ -8,6 +8,23 @@ using LinearAlgebra
 using GLMakie
 using StaticArrays
 
+# alpha, c, c̃, k, ε = (0.3, 0.6, 1.0, 10.0, 0.1)
+# grid_size = 10;
+# grid_X, grid_Y = GreenFunction.gen_grid_FFT(π, c̃, grid_size)
+# N, M = size(grid_X)
+# total_pts = (2 * grid_size)^2
+# set_of_pt_grid = GreenFunction.get_grid_pts(grid_X, grid_Y, total_pts)
+# @assert N==M==2*grid_size "Problem dimensions"
+
+# χ_der(x) = GreenFunction.build_χ_der(x, c̃, c)
+
+# Yε(x) = GreenFunction.build_Yε(x, ε)
+# Yε_der(x) = GreenFunction.build_Yε_der(x, ε)
+# Yε_der_2nd(x) = GreenFunction.build_Yε_der_2nd(x, ε)
+
+# evaluation_Φ₁ = transpose(reshape(GreenFunction.Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M)))
+# evaluation_Φ₂ = transpose(reshape(GreenFunction.Φ₂(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M)))
+
 
 function run_all_tests()
 
@@ -65,7 +82,7 @@ function test_evaluation_GF(x)
     calculation_result
 end
 
-x = SVector(5.0, 0.2)
+x = SVector(10.0, 0.4)
 @time test_evaluation_GF(x)
 
 GreenFunction.green_function_eigfct_exp(x; nb_terms=1000)
@@ -93,24 +110,3 @@ GreenFunction.green_function_img_exp(x; nb_terms=500000)
 # f = Figure()
 # ax = Axis(f[1, 1]; xticks=(0.0:0.1:1.0))
 # lines!(ax, x, y)
-
-
-using FFTW
-f(x) = 5 * cos(x) + 12 * sin(x)
-
-x = collect((-π):0.1:π)
-y = f.(x)
-
-g(x) = (5 / 2 + 6 * im) * exp(-im * x) + (5 / 2 - 6 * im) * exp(im * x)
-y2 = g.(x)
-
-fft_res = fft(y)
-
-res = zeros(Complex{Float64}, length(y))
-for i ∈ 1:length(y)
-    res[i] = fft_res[i] * exp(-im *i *x[i])
-end
-
-
-lines(x, y)
-lines!(x, real(y2))

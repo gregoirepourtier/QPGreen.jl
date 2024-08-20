@@ -32,13 +32,13 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
     @assert N==M==2*grid_size "Problem dimensions"
 
     #### 1. Preparation step ####
-    evaluation_Φ₁ = reshape(Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M))
-    evaluation_Φ₂ = reshape(Φ₂(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M))
+    evaluation_Φ₁ = transpose(reshape(Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M)))
+    evaluation_Φ₂ = transpose(reshape(Φ₂(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M)))
 
-    Φ̂₁ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₁, 1)
-    Φ̂₂ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₂, 1)
-    Φ̂₁ⱼ = fftshift(Φ̂₁ⱼ, 1)
-    Φ̂₂ⱼ = fftshift(Φ̂₂ⱼ, 1)
+    Φ̂₁ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₁)
+    Φ̂₂ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₂)
+    Φ̂₁ⱼ = fftshift(Φ̂₁ⱼ)
+    Φ̂₂ⱼ = fftshift(Φ̂₂ⱼ)
 
     fourier_coeffs_grid = zeros(Complex{Float64}, N, M)
     for i ∈ 1:N

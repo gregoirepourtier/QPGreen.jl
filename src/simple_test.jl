@@ -18,39 +18,22 @@ for i ∈ 1:(2 * N), j ∈ 1:(2 * N)
 end
 eval_f
 
-# 1D FFT
-fft_res = 1 / (2 * √(π * c̃)) .* fft(eval_f)
+### 2D FFT ###
+fft_res_2D_API = 1 / (2 * √(π * c̃)) .* fft(eval_f)
 
-res_tmp = 0
-component1 = 1
-component2 = 3
 
-for i ∈ 1:(2 * N)
-    for j ∈ 1:(2 * N)
-        res_tmp += eval_f[i, j] * 1 / (2 * √(π * c̃)) *
-                   exp(-im * (i - 1) * (component1 - 1) * π / N - im * (j - 1) * π * (component2 - 1) / N)
+res_fft_2D = zeros(Complex{Float64}, size(eval_f))
+for component1 ∈ 1:(2 * N), component2 ∈ 1:(2 * N)
+    res_tmp = 0
+    for i ∈ 1:(2 * N)
+        for j ∈ 1:(2 * N)
+            res_tmp += eval_f[i, j] * 1 / (2 * √(π * c̃)) *
+                       exp(-im * (i - 1) * (component1 - 1) * π / N - im * (j - 1) * π * (component2 - 1) / N)
+        end
     end
+    res_fft_2D[component1, component2] = res_tmp
 end
 
-t1 = res_tmp
-t2 = fft_res[component1, component2]
+t1 = res_fft_2D
+t2 = fft_res_2D_API
 isapprox(norm(t1), norm(t2); rtol=1e-10)
-
-# 2D FFT
-fft_res_2D = 1 / (2 * √(π * c̃)) .* fft(eval_f, 1)
-
-# res_fft_vec = zeros(Complex{Float64}, 2 * N)
-res_tmp = 0
-component1 = 1
-component2 = j = 3
-
-for i ∈ 1:(2 * N)
-    res_tmp += eval_f[i, j] * 1 / (2 * √(π * c̃)) *
-               exp(-im * (i - 1) * (component1 - 1) * π / N - im * (j - 1) * π * (component2 - 1) / N)
-end
-
-t1 = res_tmp
-t2 = fft_res[component1, component2]
-isapprox(norm(t1), norm(t2); rtol=1e-10)
-
-

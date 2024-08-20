@@ -1,10 +1,38 @@
 # FFT-based algorithm
 
 """
+    fourier_basis(x, j₁, j₂, c̃)
+
+Basis function of the Fourier series of the paper.
+Input arguments:
+
+  - x: point at which the basis function is evaluated
+  - j₁: first index
+  - j₂: second index
+  - c̃: parameter of the basis function
+
+Returns the value of the basis function at x.
 """
 fourier_basis(x, j₁, j₂, c̃) = 1 / (2 * √(π * c̃)) * exp(im * j₁ * x[1] + im * j₂ * x[2] * π / c̃)
 
 """
+    get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k; degree_legendre=3)
+
+Calculate the Fourier coefficients K̂ⱼ of the function Lₙ.
+Input arguments:
+
+  - j₁: first index
+  - j₂: second index
+  - c̃: parameter of the basis function
+  - α: parameter of the basis function
+  - χ_der: derivative of the cut-off function χ
+  - k: parameter of the basis function
+
+Keyword arguments:
+
+      - degree_legendre: degree of the Legendre polynomial
+
+Returns the Fourier coefficients K̂ⱼ.
 """
 function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=3) where {T}
 
@@ -25,7 +53,17 @@ function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=3) where 
 end
 
 """
+    Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
+
+Calculate the function Φ₁.
+Input arguments:
+
   - x: given as a 2D array
+  - Yε_der: derivative of the cut-off function Yε
+  - Yε_der_2nd: second derivative of the cut-off function Yε
+  - total_pts: total number of points in the grid
+
+Returns the value of the function Φ₁.
 """
 function Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 
@@ -42,11 +80,39 @@ function Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 end
 
 """
+    Φ₂(x, Yε_der, Yε_der_2nd, total_pts)
+
+Calculate the function Φ₂.
+Input arguments:
+
   - x: given as a 2D array
+  - Yε_der: derivative of the cut-off function Yε
+  - Yε_der_2nd: second derivative of the cut-off function Yε
+  - total_pts: total number of points in the grid
+
+Returns the value of the function Φ₂.
 """
 Φ₂(x, Yε_der, Yε_der_2nd, total_pts) = view(x, :, 1) .* Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 
 """
+    get_F̂ⱼ(j₁, j₂, c̃, ε, Yε, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_legendre=3)
+
+Calculate the Fourier coefficients F̂ⱼ of the function Lₙ.
+Input arguments:
+
+  - j₁: first index
+  - j₂: second index
+  - c̃: parameter of the basis function
+  - ε: parameter of the function Yε
+  - Yε: cut-off function Yε
+  - Φ̂₁ⱼ: Fourier coefficients of the function Φ₁
+  - Φ̂₂ⱼ: Fourier coefficients of the function Φ₂
+
+Keyword arguments:
+
+      - degree_legendre: degree of the Legendre polynomial
+
+Returns the Fourier coefficients F̂ⱼ.
 """
 function get_F̂ⱼ(j₁, j₂, c̃, ε, Yε::T, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_legendre=3) where {T}
 
@@ -69,22 +135,48 @@ function get_F̂ⱼ(j₁, j₂, c̃, ε, Yε::T, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_
 end
 
 """
+    f₁(x, Yε)
+
+Calculate the function f₁.
+Input arguments:
+
+  - x: point at which the function is evaluated
+  - Yε: cut-off function Yε
+
+Returns the value of the function f₁.
 """
 function f₁(x, Yε::T) where {T}
     x_norm = norm(x)
 
-    -1 / (2 * π) * log(x_norm) * Yε(x_norm)
+    return -1 / (2 * π) * log(x_norm) * Yε(x_norm)
 end
 
 """
+    f₂(x, Yε::T)
+
+Calculate the function f₂.
+Input arguments:
+
+  - x: point at which the function is evaluated
+  - Yε: cut-off function Yε
+
+Returns the value of the function f₂.
 """
 function f₂(x, Yε::T) where {T}
     x_norm = norm(x)
 
-    -1 / (2 * π) * x[1] * log(x_norm) * Yε(x_norm)
+    return -1 / (2 * π) * x[1] * log(x_norm) * Yε(x_norm)
 end
 
 """
+    get_t(x)
+
+Find the value of t in the interval [-π, π[ such that x = 2nπ + t.
+Input arguments:
+
+  - x: point at which the function is evaluated
+
+Returns the value of t.
 """
 function get_t(x)
 

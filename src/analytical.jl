@@ -8,6 +8,7 @@
   - α: quasi-periodicity parameter
 
 Returns the value of the α-quasi-periodic Green function at the field point (x₁, x₂) due to a source at (y₁, y₂)
+defined by the basic image expansion.
 """
 function green_function_img_exp(z; k=10, α=0.3, nb_terms=100)
 
@@ -32,6 +33,7 @@ end
   - α: quasi-periodicity parameter
 
 Returns the value of the α-quasi-periodic Green function at the field point (x₁, x₂) due to a source at (y₁, y₂)
+defined by the basic eigenfunction expansion.
 """
 function green_function_eigfct_exp(z; k=10, α=0.3, nb_terms=100)
 
@@ -48,4 +50,3 @@ function green_function_eigfct_exp(z; k=10, α=0.3, nb_terms=100)
 
     G
 end
-

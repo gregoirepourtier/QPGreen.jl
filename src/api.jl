@@ -3,7 +3,21 @@
 """
     fm_method_preparation(csts, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=100, ε=0.1)
 
-Returns L_n
+Preparation step of the FFT-based algorithm.
+Input arguments:
+
+  - csts: tuple of the constants (α, c, c̃, k)
+  - χ_der: function to build the cut-off function χ derivative
+  - Yε: function to build the cut-off function Yε
+  - Yε_der: function to build the derivative of the cut-off function Yε
+  - Yε_der_2nd: function to build the 2nd derivative of the cut-off function Yε
+
+Keyword arguments:
+
+  - grid_size: size of the grid
+  - ε: parameter of the function Yε
+
+Returns the Fourier coefficients of the function Lₙ.
 """
 function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2nd::T4; grid_size=100, ε=0.1) where {T1, T2, T3, T4}
 
@@ -49,8 +63,22 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
     return Lₙ
 end
 
-
 """
+    fm_method_calculation(x, csts, Lₙ, Yε; nb_terms=100)
+
+Calculation step of the FFT-based algorithm.
+Input arguments:
+
+  - x: given as a 2D array
+  - csts: tuple of the constants (α, c, c̃, k)
+  - Lₙ: Fourier coefficients of the function Lₙ
+  - Yε: function to build the cut-off function Yε
+
+Keyword arguments:
+
+      - nb_terms: number of terms in the series expansion
+
+Returns the approximate value of the Green's function G(x).
 """
 function fm_method_calculation(x, csts, Lₙ, Yε::T; nb_terms=100) where {T}
 
@@ -83,6 +111,16 @@ function fm_method_calculation(x, csts, Lₙ, Yε::T; nb_terms=100) where {T}
 end
 
 """
+    build_χ(x, c̃, c)
+
+Build the cut-off function χ.
+Input arguments:
+
+  - x: point at which the cut-off function is evaluated
+  - c̃: parameter of the cut-off function
+  - c: parameter of the cut-off function
+
+Returns the value of the cut-off function at x.
 """
 function build_χ(x, c̃, c)
 
@@ -105,6 +143,16 @@ function build_χ(x, c̃, c)
 end
 
 """
+    build_χ_der(x, c̃, c)
+
+Build the derivative of the cut-off function χ.
+Input arguments:
+
+  - x: point at which the derivative of the cut-off function is evaluated
+  - c̃: parameter of the cut-off function
+  - c: parameter of the cut-off function
+
+Returns the value of the derivative of the cut-off function at x.
 """
 function build_χ_der(x, c̃, c)
     g(x) = x^5 * (1 - x)^5
@@ -127,6 +175,15 @@ function build_χ_der(x, c̃, c)
 end
 
 """
+    build_Yε(x, ε)
+
+Build the cut-off function Yε.
+Input arguments:
+
+  - x: point at which the cut-off function is evaluated
+  - ε: parameter of the cut-off function
+
+Returns the value of the cut-off function at x.
 """
 function build_Yε(x, ε)
 
@@ -146,6 +203,15 @@ function build_Yε(x, ε)
 end
 
 """
+    build_Yε_der(x, ε)
+
+Build the derivative of the cut-off function Yε.
+Input arguments:
+
+  - x: point at which the derivative of the cut-off function is evaluated
+  - ε: parameter of the cut-off function
+
+Returns the value of the derivative of the cut-off function at x.
 """
 function build_Yε_der(x, ε)
     g(x) = x^5 * (1 - x)^5
@@ -164,6 +230,15 @@ function build_Yε_der(x, ε)
 end
 
 """
+    build_Yε_der_2nd(x, ε)
+
+Build the 2nd derivative of the cut-off function Yε.
+Input arguments:
+
+  - x: point at which the 2nd derivative of the cut-off function is evaluated
+  - ε: parameter of the cut-off function
+
+Returns the value of the 2nd derivative of the cut-off function at x.
 """
 function build_Yε_der_2nd(x, ε)
     g(x) = -5 * (x - 1)^4 * x^4 * (2x - 1)

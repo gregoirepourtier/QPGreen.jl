@@ -58,7 +58,8 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
         end
     end
 
-    Lₙ = ifft(fourier_coeffs_grid, 1)
+    Lₙ = 1 / (2 * √(π * c̃)) .* ifft(fourier_coeffs_grid)
+    # Lₙ = ifftshift(_Lₙ)
 
     return Lₙ
 end
@@ -71,7 +72,7 @@ Input arguments:
 
   - x: given as a 2D array
   - csts: tuple of the constants (α, c, c̃, k)
-  - Lₙ: Fourier coefficients of the function Lₙ
+  - Lₙ: values of Lₙ at the grid points
   - Yε: function to build the cut-off function Yε
 
 Keyword arguments:
@@ -91,7 +92,7 @@ function fm_method_calculation(x, csts, Lₙ, Yε::T; nb_terms=100) where {T}
 
     if abs(x[2]) > c
         @info "The point is outside the domain D_c"
-        evaluation_GF = green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=nb_terms)
+        return green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=nb_terms)
     else
         @info "The point is inside the domain D_c"
         t = get_t(x[1])

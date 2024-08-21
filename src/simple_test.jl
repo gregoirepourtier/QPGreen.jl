@@ -1,4 +1,4 @@
-# Simple test to check the correctness of the 2D FFT implementation
+# Simple test to check the correctness of the 2D FFT and IFFT implementation.
 
 include("GreenFunction.jl")
 using FFTW, LinearAlgebra
@@ -32,12 +32,13 @@ for component1 ∈ (-N):(N - 1), component2 ∈ (-N):(N - 1)
         for j ∈ (-N):(N - 1)
             res_tmp += eval_f[i + N + 1, j + N + 1] * 1 / (2 * √(π * c̃)) *
                        exp(-im * i * component1 * π / N - im * j * π * component2 / N)
-            if component1 == -1 && component2 == -2
-                println("i: ", i, " j: ", j, " res_tmp: ", res_tmp)
-            end
         end
     end
-    res_fft_2D[component1 + N + 1, component2 + N + 1] = res_tmp
+    if (component1 + component2) % 2 == 0
+        res_fft_2D[component1 + N + 1, component2 + N + 1] = res_tmp
+    else
+        res_fft_2D[component1 + N + 1, component2 + N + 1] = -res_tmp
+    end
 end
 
 t1 = res_fft_2D
@@ -48,6 +49,12 @@ isapprox(norm(t1), norm(t2); rtol=1e-10)
 t2
 fftshift(t2)
 fftshift(t1)
+
+### 2D IFFT ###
+
+res_ifft_2D = (2 * √(π * c̃)) .* ifft(t1)
+res_ifft_2D_API = (2 * √(π * c̃)) .* ifft(fftshift(t2))
+eval_f
 
 
 

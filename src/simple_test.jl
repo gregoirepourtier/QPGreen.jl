@@ -32,7 +32,7 @@ for component1 ∈ (-N):(N - 1), component2 ∈ (-N):(N - 1)
     for i ∈ (-N):(N - 1)
         for j ∈ (-N):(N - 1)
             res_tmp += eval_f[i + N + 1, j + N + 1] * 1 / (2 * √(π * c̃)) *
-                       exp(-im * (i - 1) * (component1 - 1) * π / N - im * (j - 1) * π * (component2 - 1) / N)
+                       exp(-im * (i) * (component1) * π / N - im * (j) * π * (component2) / N)
         end
     end
     res_fft_2D[component1 + N + 1, component2 + N + 1] = res_tmp

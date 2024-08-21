@@ -19,20 +19,22 @@ for i ∈ 1:(2 * N), j ∈ 1:(2 * N)
     cpt += 1
 end
 eval_f
-eval_f = fftshift(eval_f)
-eval_f
+# eval_f = fftshift(eval_f)
 
 ### 2D FFT ###
 fft_res_2D_API = 1 / (2 * √(π * c̃)) .* fft(eval_f)
 
 
-res_fft_2D = zeros(Complex{Float64}, size(eval_f))
+res_fft_2D = zeros(Complex{Float64}, size(eval_f));
 for component1 ∈ (-N):(N - 1), component2 ∈ (-N):(N - 1)
     res_tmp = 0
     for i ∈ (-N):(N - 1)
         for j ∈ (-N):(N - 1)
             res_tmp += eval_f[i + N + 1, j + N + 1] * 1 / (2 * √(π * c̃)) *
-                       exp(-im * (i) * (component1) * π / N - im * (j) * π * (component2) / N)
+                       exp(-im * i * component1 * π / N - im * j * π * component2 / N)
+            if component1 == -1 && component2 == -2
+                println("i: ", i, " j: ", j, " res_tmp: ", res_tmp)
+            end
         end
     end
     res_fft_2D[component1 + N + 1, component2 + N + 1] = res_tmp
@@ -45,6 +47,8 @@ isapprox(norm(t1), norm(t2); rtol=1e-10)
 
 t2
 fftshift(t2)
+fftshift(t1)
+
 
 
 ## Normal Indices

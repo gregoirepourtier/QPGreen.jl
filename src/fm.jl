@@ -1,21 +1,6 @@
 # FFT-based algorithm
 
 """
-    fourier_basis(x, j₁, j₂, c̃)
-
-Basis function of the Fourier series of the paper.
-Input arguments:
-
-  - x: point at which the basis function is evaluated
-  - j₁: first index
-  - j₂: second index
-  - c̃: parameter of the basis function
-
-Returns the value of the basis function at x.
-"""
-fourier_basis(x, j₁, j₂, c̃) = 1 / (2 * √(π * c̃)) * exp(im * j₁ * x[1] + im * j₂ * x[2] * π / c̃)
-
-"""
     get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k; degree_legendre=3)
 
 Calculate the Fourier coefficients K̂ⱼ of the function Lₙ.

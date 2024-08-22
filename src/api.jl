@@ -58,8 +58,8 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
         end
     end
 
-    Lₙ = 1 / (2 * √(π * c̃)) .* ifft(fourier_coeffs_grid)
-    # Lₙ = ifftshift(_Lₙ)
+    _Lₙ = 1 / (2 * √(π * c̃)) .* ifft(fourier_coeffs_grid)
+    Lₙ = ifftshift(_Lₙ)
 
     return Lₙ
 end

@@ -125,21 +125,29 @@ Returns the value of the cut-off function at x.
 """
 function build_χ(x, c̃, c)
 
-    g(x) = x^5 * (1 - x)^5
+    c₁ = (c + c̃) / 2
+    c₂ = c
+
+    # 2 ≠ options here -> other one leads to discontinuity in the derivative
+    g_left(x) = (-c₁ - x)^5 * (-c₂ - x)^5 # (c₁ - x)^5 * (c₂ - x)^5 
+    g_right(x) = (c₁ - x)^5 * (c₂ - x)^5 # (-c₁ - x)^5 * (-c₂ - x)^5
+
     ξ, w = gausslegendre(5)
 
-    if abs(x) >= (c̃ + c) / 2
+    if abs(x) >= c₁
         return 0
-    elseif abs(x) <= c
+    elseif abs(x) <= c₂
         return 1
-    elseif x < -c && x > -(c̃ + c) / 2
-        integral_left = dot(w, quad.(g, ξ, -(c̃ + c) / 2, -c))
+    elseif x < -c₂ && x > -c₁
+        integral_left = dot(w, quad.(g_left, ξ, -c₁, -c₂))
         cst_left = 1 / integral_left
-        return cst_left * dot(w, quad.(g, ξ, -(c̃ + c) / 2, x))
-    elseif x > c && x < (c̃ + c) / 2
-        integral_right = dot(w, quad.(g, ξ, c, (c̃ + c) / 2))
+        return cst_left * dot(w, quad.(g_left, ξ, -c₁, x))
+    elseif x > c₂ && x < c₁
+        integral_right = dot(w, quad.(g_right, ξ, c₂, c₁))
         cst_right = 1 / integral_right
-        return cst_right * dot(w, quad.(g, ξ, x, (c̃ + c) / 2))
+        return cst_right * dot(w, quad.(g_right, ξ, x, c₁))
+    else
+        @error "Problem with the given point"
     end
 end
 
@@ -156,22 +164,30 @@ Input arguments:
 Returns the value of the derivative of the cut-off function at x.
 """
 function build_χ_der(x, c̃, c)
-    g(x) = x^5 * (1 - x)^5
+
+    c₁ = (c + c̃) / 2
+    c₂ = c
+
+    # 2 ≠ options here  
+    g_left(x) = (-c₁ - x)^5 * (-c₂ - x)^5 # (c₁ - x)^5 * (c₂ - x)^5 
+    g_right(x) = (c₁ - x)^5 * (c₂ - x)^5 # (-c₁ - x)^5 * (-c₂ - x)^5
 
     ξ, w = gausslegendre(5)
 
-    if abs(x) >= (c̃ + c) / 2
+    if abs(x) >= c₁
         return 0
-    elseif abs(x) <= c
+    elseif abs(x) <= c₂
         return 0
-    elseif x < -c && x > -(c̃ + c) / 2
-        integral_left = dot(w, quad.(g, ξ, -(c̃ + c) / 2, -c))
+    elseif x < -c₂ && x > -c₁
+        integral_left = dot(w, quad.(g_left, ξ, -c₁, -c₂))
         cst_left = 1 / integral_left
-        return cst_left * g.(x)
-    elseif x > c && x < (c̃ + c) / 2
-        integral_right = dot(w, quad.(g, ξ, c, (c̃ + c) / 2))
+        return cst_left * g_left.(x)
+    elseif x > c₂ && x < c₁
+        integral_right = dot(w, quad.(g_right, ξ, c₂, c₁))
         cst_right = 1 / integral_right
-        return cst_right * g(x)
+        return cst_right * g_right.(x)
+    else
+        @error "Problem with the given point"
     end
 end
 
@@ -188,18 +204,20 @@ Returns the value of the cut-off function at x.
 """
 function build_Yε(x, ε)
 
-    g(x) = x^5 * (1 - x)^5
-    ξ, w = gausslegendre(5)
+    g(x) = (ε - x)^5 * (2 * ε - x)^5 # (-ε - x)^5 * (-2 * ε - x)^5
 
-    integral = dot(w, quad.(g, ξ, ε, 2 * ε))
-    cst = 1 / integral
+    ξ, w = gausslegendre(5)
 
     if x >= 2 * ε
         return 0
     elseif 0 <= x <= ε
         return 1
-    else
+    elseif ε < x < 2 * ε
+        integral = dot(w, quad.(g, ξ, ε, 2 * ε))
+        cst = 1 / integral
         return cst * dot(w, quad.(g, ξ, x, 2 * ε))
+    else
+        @error "x is out of bounds"
     end
 end
 
@@ -215,18 +233,22 @@ Input arguments:
 Returns the value of the derivative of the cut-off function at x.
 """
 function build_Yε_der(x, ε)
-    g(x) = x^5 * (1 - x)^5
-    ξ, w = gausslegendre(5)
 
-    integral = dot(w, quad.(g, ξ, ε, 2 * ε))
-    cst = 1 / integral
+    # 2 ≠ options here  
+    g(x) = (ε - x)^5 * (2 * ε - x)^5 # (-ε - x)^5 * (-2 * ε - x)^5
+
+    ξ, w = gausslegendre(5)
 
     if x >= 2 * ε
         return 0
     elseif 0 <= x <= ε
         return 0
+    elseif ε < x < 2 * ε
+        integral = dot(w, quad.(g, ξ, ε, 2 * ε))
+        cst = 1 / integral
+        return cst * g.(x)
     else
-        return cst * g(x)
+        @error "x is out of bounds"
     end
 end
 
@@ -242,17 +264,23 @@ Input arguments:
 Returns the value of the 2nd derivative of the cut-off function at x.
 """
 function build_Yε_der_2nd(x, ε)
-    g(x) = -5 * (x - 1)^4 * x^4 * (2x - 1)
-    ξ, w = gausslegendre(5)
 
-    integral = dot(w, quad.(g, ξ, ε, 2 * ε))
-    cst = 1 / integral
+    g(x) = -5 * (ε - x)^4 * (2 * ε - x)^5 - 5 * (ε - x)^5 * (2 * ε - x)^4
+
+    # 2 ≠ options here  
+    g_primitive(x) = (ε - x)^5 * (2 * ε - x)^5 # (-ε - x)^5 * (-2 * ε - x)^5
+
+    ξ, w = gausslegendre(5)
 
     if x >= 2 * ε
         return 0
     elseif 0 <= x <= ε
         return 0
+    elseif ε < x < 2 * ε
+        integral = dot(w, quad.(g_primitive, ξ, ε, 2 * ε))
+        cst = 1 / integral
+        return cst * g.(x)
     else
-        return cst * g(x)
+        @error "x is out of bounds"
     end
 end

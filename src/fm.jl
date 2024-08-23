@@ -1,7 +1,7 @@
 # FFT-based algorithm
 
 """
-    get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k; degree_legendre=3)
+    get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k; degree_legendre=5)
 
 Calculate the Fourier coefficients K̂ⱼ of the function Lₙ.
 Input arguments:
@@ -19,10 +19,14 @@ Keyword arguments:
 
 Returns the Fourier coefficients K̂ⱼ.
 """
-function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=3) where {T}
+function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=5) where {T}
 
     αⱼ₁ = α + j₁
     βⱼ₁ = abs(αⱼ₁) <= k ? √(k^2 - αⱼ₁^2) : im * √(αⱼ₁^2 - k^2)
+
+    if βⱼ₁ == j₂ * π / c̃ || βⱼ₁ == -j₂ * π / c̃
+        @error "Unexpected Behaviour in get_K̂ⱼ"
+    end
 
     ξ, w = gausslegendre(degree_legendre)
 
@@ -65,22 +69,7 @@ function Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
 end
 
 """
-    Φ₂(x, Yε_der, Yε_der_2nd, total_pts)
-
-Calculate the function Φ₂.
-Input arguments:
-
-  - x: given as a 2D array
-  - Yε_der: derivative of the cut-off function Yε
-  - Yε_der_2nd: second derivative of the cut-off function Yε
-  - total_pts: total number of points in the grid
-
-Returns the value of the function Φ₂.
-"""
-Φ₂(x, Yε_der, Yε_der_2nd, total_pts) = view(x, :, 1) .* Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
-
-"""
-    get_F̂ⱼ(j₁, j₂, c̃, ε, Yε, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_legendre=3)
+    get_F̂ⱼ(j₁, j₂, c̃, ε, Yε, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_legendre=5)
 
 Calculate the Fourier coefficients F̂ⱼ of the function Lₙ.
 Input arguments:
@@ -99,7 +88,7 @@ Keyword arguments:
 
 Returns the Fourier coefficients F̂ⱼ.
 """
-function get_F̂ⱼ(j₁, j₂, c̃, ε, Yε::T, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_legendre=3) where {T}
+function get_F̂ⱼ(j₁, j₂, c̃, ε, Yε::T, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_legendre=5) where {T}
 
     if (j₁^2 + j₂^2) ≠ 0
         cst = j₁^2 + j₂^2 * π^2 / c̃^2
@@ -168,9 +157,9 @@ function get_t(x)
     _n = x[1] ÷ (2 * π)
     _t = x[1] % (2 * π)
 
-    (n, t) = -π <= x[1] % (2 * π) < π ? (_n, _t) : (_n + 1, x[1] - 2 * (_n + 1) * π)
+    (n, t) = -π <= _t < π ? (_n, _t) : (_n + 1, x[1] - 2 * (_n + 1) * π)
 
-    @assert x[1] == 2 * n * π + t&&t >= -π && t < π "Error finding t in get_t"
+    @assert x[1] == 2 * n * π + t&&-π <= t < π "Error finding t in get_t"
 
     t
 end

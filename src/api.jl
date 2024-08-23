@@ -1,4 +1,4 @@
-# API of the package 
+# API of the package
 
 """
     fm_method_preparation(csts, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=100, ε=0.1)
@@ -32,8 +32,10 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
     @assert N==M==2*grid_size "Problem dimensions"
 
     #### 1. Preparation step ####
-    evaluation_Φ₁ = transpose(reshape(Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M)))
-    evaluation_Φ₂ = transpose(reshape(Φ₂(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts), (N, M)))
+    _evaluation_Φ₁ = Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts)
+    evaluation_Φ₁ = transpose(reshape(_evaluation_Φ₁, (N, M)))
+    _evaluation_Φ₂ = view(set_of_pt_grid, :, 1) .* _evaluation_Φ₁
+    evaluation_Φ₂ = transpose(reshape(_evaluation_Φ₂, (N, M)))
 
     Φ̂₁ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₁)
     Φ̂₂ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₂)
@@ -58,8 +60,8 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
         end
     end
 
-    _Lₙ = 1 / (2 * √(π * c̃)) .* ifft(fourier_coeffs_grid)
-    Lₙ = ifftshift(_Lₙ)
+    _Lₙ = 1 / (2 * √(π * c̃)) .* ifft(fourier_coeffs_grid) # ifft(ifftshift(fourier_coeffs_grid))
+    Lₙ = fftshift(_Lₙ)
 
     return Lₙ
 end
@@ -81,7 +83,7 @@ Keyword arguments:
 
 Returns the approximate value of the Green's function G(x).
 """
-function fm_method_calculation(x, csts, Lₙ, Yε::T; nb_terms=100) where {T}
+function fm_method_calculation(x, csts, Lₙ, Yε::T; α=0.3, k=10.0, nb_terms=100) where {T}
 
     α, c, c̃, k = csts
     N, M = size(Lₙ)
@@ -89,16 +91,17 @@ function fm_method_calculation(x, csts, Lₙ, Yε::T; nb_terms=100) where {T}
     @assert N==M "Problem dimensions"
 
     # 2. Calculation
-
     if abs(x[2]) > c
         @info "The point is outside the domain D_c"
-        return green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=nb_terms)
+        return green_function_eigfct_exp(x; k=k, α=α, nb_terms=nb_terms)
     else
         @info "The point is inside the domain D_c"
         t = get_t(x[1])
 
         # Bicubic Interpolation to get Lₙ(t, x₂)
-        interp_cubic = cubic_spline_interpolation((range(-π, π; length=N), range(-c̃, c̃; length=N)), Lₙ)
+        xs = range(-π, π; length=N)
+        ys = range(-c̃, c̃; length=N)
+        interp_cubic = cubic_spline_interpolation((xs, ys), Lₙ)
         Lₙ_t_x₂ = interp_cubic(t, x[2])
 
         # Get K(t, x₂)

@@ -1,7 +1,7 @@
 # Tools for the package
 
 """
-    gen_grid_FFT(x, y, N::Integer)
+    gen_grid_FFT(x, y, N)
 
 Generate a uniform rectangular grid of 2N*2N small rectangles.
 

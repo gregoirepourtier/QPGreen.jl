@@ -12,5 +12,6 @@ include("utils.jl")
 include("fm.jl")
 include("api.jl")
 include("lattice_sums.jl")
+include("ewald.jl")
 
 end # module

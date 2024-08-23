@@ -8,29 +8,6 @@ using LinearAlgebra
 using GLMakie
 using StaticArrays
 
-function run_all_tests()
-
-    x = SVector(10.0, 10.0)
-    y = SVector(2.0, 2.0)
-
-    x - y
-
-    res_img = GreenFunction.green_function_img_exp(x - y; nb_terms=10000)
-    res_eig = GreenFunction.green_function_eigfct_exp(x - y; nb_terms=100)
-
-    res1 = norm(res_img - res_eig)
-
-    x = [0.01 * π, 0.0]
-    res_img = GreenFunction.green_function_img_exp(x; nb_terms=100)
-    res_eig = GreenFunction.green_function_eigfct_exp(x; nb_terms=1000)
-
-    res2 = norm(res_img - res_eig)
-
-    res1, res2
-end
-
-# run_all_tests()
-
 function plot_grid()
 
     # Generate the meshgrid
@@ -41,7 +18,6 @@ function plot_grid()
     # Plot the meshgrid
     meshgrid_plot = scatter(grid_X[:], grid_Y[:])
 end
-
 # plot_grid()
 
 function test_evaluation_GF(x)
@@ -65,8 +41,8 @@ end
 x = SVector(10.0, 0.4)
 @time test_evaluation_GF(x)
 
-GreenFunction.green_function_eigfct_exp(x; nb_terms=1000)
-GreenFunction.green_function_img_exp(x; nb_terms=500000)
+GreenFunction.green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=1000)
+GreenFunction.green_function_img_exp(x; k=10, α=0.3, nb_terms=500000)
 
 
 # Test build cut-off functions and derivatives

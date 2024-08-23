@@ -20,10 +20,10 @@ function plot_grid()
 end
 # plot_grid()
 
-function test_evaluation_GF(x)
+function test_evaluation_GF(x, csts)
 
-    alpha, c, c̃, k, ε = (0.3, 0.6, 1.0, 10.0, 0.1)
-    csts = (alpha, c, c̃, k)
+    alpha, c, c̃, k, ε = csts
+    params = (alpha, c, c̃, k)
 
     χ_der(x) = GreenFunction.build_χ_der(x, c̃, c)
 
@@ -31,18 +31,18 @@ function test_evaluation_GF(x)
     Yε_der(x) = GreenFunction.build_Yε_der(x, ε)
     Yε_der_2nd(x) = GreenFunction.build_Yε_der_2nd(x, ε)
 
-    preparation_result = GreenFunction.fm_method_preparation(csts, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=32)
-
-    calculation_result = GreenFunction.fm_method_calculation(x, csts, preparation_result, Yε; nb_terms=32)
+    preparation_result = GreenFunction.fm_method_preparation(params, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=32)
+    calculation_result = GreenFunction.fm_method_calculation(x, params, preparation_result, Yε; nb_terms=32)
 
     calculation_result
 end
 
 x = SVector(10.0, 0.4)
-@time test_evaluation_GF(x)
+csts = (0.3, 0.6, 1.0, 10.0, 0.1)
+@time test_evaluation_GF(x, csts)
 
-GreenFunction.green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=1000)
-GreenFunction.green_function_img_exp(x; k=10, α=0.3, nb_terms=500000)
+@time GreenFunction.green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=1000)
+@time GreenFunction.green_function_img_exp(x; k=10, α=0.3, nb_terms=500000)
 
 
 # Test build cut-off functions and derivatives

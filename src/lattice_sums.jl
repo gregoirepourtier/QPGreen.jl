@@ -27,15 +27,15 @@ end
 """
 function S_0(β, k, d, M)
 
-    C_euler = 0.5772157
-    p = 2 * pi / d
-    γ₀ = k <= abs(β) ? √(β^2 - k^2) : im * √(k^2 - β^2)
+    C_euler = 0.57721566490153286060651209008240243104215933593992
+    p = 2π / d
+    γ₀ = -im * √(k^2 - β^2) # k <= abs(β) ? √(β^2 - k^2) : im * √(k^2 - β^2)
 
     sum_1 = 0
     for m ∈ (-M):M
         if m ≠ 0
             βₘ = β + m * p
-            γₘ = k <= abs(βₘ) ? √(βₘ^2 - k^2) : im * √(k^2 - βₘ^2)
+            γₘ = -im * √(Complex(k^2 - βₘ^2)) # k <= abs(βₘ) ? √(βₘ^2 - k^2) : im * √(k^2 - βₘ^2)
             sum_1 += 1 / γₘ - 1 / (p * abs(m)) - (k^2 + 2 * β^2) / (2 * p^3 * abs(m)^3) # Typo paper? abs(m)^2 or abs(m)^3?
         end
     end
@@ -49,19 +49,19 @@ end
 """
 function S_even(l, β, k, d, M)
 
-    p = 2 * pi / d
-    γ₀ = k <= abs(β) ? √(β^2 - k^2) : im * √(k^2 - β^2)
-    θ₀ = asin(β / k)
+    p = 2π / d
+    γ₀ = -im * √(k^2 - β^2) # k <= abs(β) ? √(β^2 - k^2) : im * √(k^2 - β^2)
+    θ₀ = asin(Complex(β / k))
 
     sum_1 = 0
     for m ∈ 1:M
         βₘ = β + m * p
         β₋ₘ = β - m * p
-        γₘ = k <= abs(βₘ) ? √(βₘ^2 - k^2) : im * √(k^2 - βₘ^2)
-        γ₋ₘ = k <= abs(β₋ₘ) ? √(β₋ₘ^2 - k^2) : im * √(k^2 - β₋ₘ^2)
+        γₘ = -im * √(Complex(k^2 - βₘ^2)) # k <= abs(βₘ) ? √(βₘ^2 - k^2) : im * √(k^2 - βₘ^2)
+        γ₋ₘ = -im * √(Complex(k^2 - β₋ₘ^2)) # k <= abs(β₋ₘ) ? √(β₋ₘ^2 - k^2) : im * √(k^2 - β₋ₘ^2)
         θₘ = asin(Complex(βₘ / k))
         θ₋ₘ = asin(Complex(β₋ₘ / k))
-        sum_1 += exp(-2 * im * l * θₘ) / (γₘ * d) + exp(-2 * im * l * θ₋ₘ) / (γ₋ₘ * d) -
+        sum_1 += exp(-2 * im * l * θₘ) / (γₘ * d) + exp(2 * im * l * θ₋ₘ) / (γ₋ₘ * d) -
                  (-1)^l / (m * π) * (k / (2 * m * p))^(2 * l)
     end
 
@@ -78,16 +78,16 @@ end
 
 function S_odd(l, β, k, d, M)
 
-    p = 2 * pi / d
-    γ₀ = k <= abs(β) ? √(β^2 - k^2) : im * √(k^2 - β^2)
-    θ₀ = asin(β / k)
+    p = 2π / d
+    γ₀ = -im * √(k^2 - β^2)# k <= abs(β) ? √(β^2 - k^2) : im * √(k^2 - β^2)
+    θ₀ = asin(Complex(β / k))
 
     sum_1 = 0
     for m ∈ 1:M
         βₘ = β + m * p
         β₋ₘ = β - m * p
-        γₘ = k <= abs(βₘ) ? √(βₘ^2 - k^2) : im * √(k^2 - βₘ^2)
-        γ₋ₘ = k <= abs(β₋ₘ) ? √(β₋ₘ^2 - k^2) : im * √(k^2 - β₋ₘ^2)
+        γₘ = -im * √(Complex(k^2 - βₘ^2)) # k <= abs(βₘ) ? √(βₘ^2 - k^2) : im * √(k^2 - βₘ^2)
+        γ₋ₘ = -im * √(Complex(k^2 - β₋ₘ^2)) # k <= abs(β₋ₘ) ? √(β₋ₘ^2 - k^2) : im * √(k^2 - β₋ₘ^2)
         θₘ = asin(Complex(βₘ / k))
         θ₋ₘ = asin(Complex(β₋ₘ / k))
         sum_1 += exp(-im * (2 * l - 1) * θₘ) / (γₘ * d) - exp(im * (2 * l - 1) * θ₋ₘ) / (γ₋ₘ * d) +
@@ -95,7 +95,7 @@ function S_odd(l, β, k, d, M)
     end
 
     sum_2 = 0
-    for m ∈ 1:(l - 1)
+    for m ∈ 0:(l - 1)
         sum_2 += (-1)^m * 2^(2 * m) * factorial(l + m - 1) / (factorial(2 * m + 1) * factorial(l - m - 1)) * (p / k)^(2 * m + 1) *
                  bernoulli(2 * m + 1, β / p)
     end

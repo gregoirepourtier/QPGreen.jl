@@ -6,13 +6,6 @@ using Test
 using StaticArrays
 using GreenFunction
 
-
-function test_lattice_sum(r, θ, csts)
-
-    GreenFunction.lattice_sums_preparation(r, θ, csts)
-end
-
-
 # P = SVector(0.0, 0.1)
 # Q = SVector(0.0, 0.2)
 X = 0.0 # Q[1] - P[1]
@@ -29,7 +22,7 @@ k * d == 2
 β * d == √2
 r < d
 
-test_lattice_sum(r, θ, csts)
+GreenFunction.lattice_sums_preparation(r, θ, csts)
 
 GreenFunction.green_function_eigfct_exp((X, Y); nb_terms=1000)
 GreenFunction.green_function_img_exp((X, Y); nb_terms=500000)

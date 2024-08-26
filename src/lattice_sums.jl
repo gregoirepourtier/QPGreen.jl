@@ -31,7 +31,7 @@ function S_0(β, k, d, M)
         if m ≠ 0
             βₘ = β + m * p
             γₘ = k <= abs(βₘ) ? √(βₘ^2 - k^2) : -im * √(k^2 - βₘ^2)
-            sum_1 += 1 / γₘ - 1 / (p * abs(m)) - (k^2 + 2 * β^2) / (2 * p^3 * abs(m)^3) # Typo paper? abs(m)^2 or abs(m)^3?
+            sum_1 += 1 / γₘ - 1 / (p * abs(m)) - (k^2 + 2 * β^2) / (2 * p^3 * abs(m)^3)
         end
     end
 

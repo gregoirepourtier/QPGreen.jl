@@ -220,7 +220,7 @@ function build_Yε(x, ε)
         cst = 1 / integral
         return cst * dot(w, quad.(g, ξ, x, 2 * ε))
     else
-        @error "x is out of bounds"
+        @error "x is out of bounds" # Change error message
     end
 end
 
@@ -251,7 +251,7 @@ function build_Yε_der(x, ε)
         cst = 1 / integral
         return cst * g.(x)
     else
-        @error "x is out of bounds"
+        @error "x is out of bounds" # Change error message
     end
 end
 
@@ -284,6 +284,6 @@ function build_Yε_der_2nd(x, ε)
         cst = 1 / integral
         return cst * g.(x)
     else
-        @error "x is out of bounds"
+        @error "x is out of bounds" # Change error message
     end
 end

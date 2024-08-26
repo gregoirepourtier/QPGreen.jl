@@ -46,16 +46,17 @@ function S_even(l, β, k, d, M)
 
     p = 2π / d
     γ₀ = k <= abs(β) ? √(β^2 - k^2) : -im * √(k^2 - β^2)
-    θ₀ = asin(Complex(β / k))
+    θ₀ = abs(β) < k ? asin(β / k) : asin_ls(β / k)
 
     sum_1 = 0
     for m ∈ 1:M
         βₘ = β + m * p
         β₋ₘ = β - m * p
+        β₋ₘ = β - m * p
         γₘ = k <= abs(βₘ) ? √(βₘ^2 - k^2) : -im * √(k^2 - βₘ^2)
         γ₋ₘ = k <= abs(β₋ₘ) ? √(β₋ₘ^2 - k^2) : -im * √(k^2 - β₋ₘ^2)
-        θₘ = asin(Complex(βₘ / k))
-        θ₋ₘ = asin(Complex(β₋ₘ / k))
+        θₘ = abs(βₘ) < k ? asin(βₘ / k) : asin_ls(βₘ / k)
+        θ₋ₘ = abs(β₋ₘ) < k ? asin(β₋ₘ / k) : asin_ls(β₋ₘ / k)
         sum_1 += exp(-2 * im * l * θₘ) / (γₘ * d) + exp(2 * im * l * θ₋ₘ) / (γ₋ₘ * d) -
                  (-1)^l / (m * π) * (k / (2 * m * p))^(2 * l)
     end
@@ -75,7 +76,7 @@ function S_odd(l, β, k, d, M)
 
     p = 2π / d
     γ₀ = k <= abs(β) ? √(β^2 - k^2) : -im * √(k^2 - β^2)
-    θ₀ = asin(Complex(β / k))
+    θ₀ = abs(β) < k ? asin(β / k) : asin_ls(β / k)
 
     sum_1 = 0
     for m ∈ 1:M
@@ -83,8 +84,8 @@ function S_odd(l, β, k, d, M)
         β₋ₘ = β - m * p
         γₘ = k <= abs(βₘ) ? √(βₘ^2 - k^2) : -im * √(k^2 - βₘ^2)
         γ₋ₘ = k <= abs(β₋ₘ) ? √(β₋ₘ^2 - k^2) : -im * √(k^2 - β₋ₘ^2)
-        θₘ = asin(Complex(βₘ / k))
-        θ₋ₘ = asin(Complex(β₋ₘ / k))
+        θₘ = abs(βₘ) < k ? asin(βₘ / k) : asin_ls(βₘ / k)
+        θ₋ₘ = abs(β₋ₘ) < k ? asin(β₋ₘ / k) : asin_ls(β₋ₘ / k)
         sum_1 += exp(-im * (2 * l - 1) * θₘ) / (γₘ * d) - exp(im * (2 * l - 1) * θ₋ₘ) / (γ₋ₘ * d) +
                  im * (-1)^l * β * d * l / (m^2 * π^2) * (k / (2 * m * p))^(2 * l - 1)
     end
@@ -114,3 +115,5 @@ function bernoulli(n, x)
     end
     res_bernouilli
 end
+
+asin_ls(x) = -log(√(Complex(1 - x^2)) + x * im) * im

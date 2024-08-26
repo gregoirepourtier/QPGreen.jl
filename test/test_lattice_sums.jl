@@ -10,12 +10,13 @@ using SpecialFunctions
 X = 0.0
 Y = 0.01 * 2π
 r = √(X^2 + Y^2)
-θ = atan(Y / X)
+θ = atan(Y, X)
 
 β, k, d, M, L = (√2 / (2 * π), 2 / (2 * π), 2 * π, 7, 3)
 csts = (β, k, d, M, L)
 
 (X / d == 0.0, Y / d == 0.01, k * d == 2, β * d == √2, r < d)
+
 
 GreenFunction.lattice_sums_preparation(r, θ, csts)
 
@@ -56,3 +57,7 @@ function test_eigfct_exp(z, β, d; nb_terms=100)
 end
 
 test_eigfct_exp((X, Y), β, d; nb_terms=1000)
+
+x = -1.2
+GreenFunction.asin_ls(x)
+asin(Complex(x))

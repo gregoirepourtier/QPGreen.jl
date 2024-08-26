@@ -1,26 +1,82 @@
 # Lattice Sums algorithm
 
 """
-    lattice_sums_preparation()
+    lattice_sums_preparation(csts)
+
+Perform the preparation step for the lattice sums algorithm.
+Input arguments:
+
+  - `csts`: tuple of constants `(β, k, d, M, L)` representing quasi-periodicty parameter, wave number
+    , period, number of terms, and number of terms in the sum respectively.
+
+Returns the lattice sum coefficients.
 """
-function lattice_sums_preparation(r, θ, csts; nb_terms=100)
+function lattice_sums_preparation(csts)
 
     β, k, d, M, L = csts
 
     # Compute the lattice sums coefficients
-    lattice_sum = S_0(β, k, d, M) * besselj0(k * r)
+    Sₗ = zeros(Complex, L + 1)
+    Sₗ[1] = S₀(β, k, d, M)
     for l ∈ 1:L
-        Sₗ = l % 2 == 0 ? S_even(l, β, k, d, M) : S_odd(l, β, k, d, M)
-        lattice_sum += 2 * Sₗ * besselj(l, k * r) * cos(l * (π / 2 - θ))
+        Sₗ[l + 1] = l % 2 == 0 ? S_even(l, β, k, d, M) : S_odd(l, β, k, d, M)
     end
 
-    return -im / 4 * (hankelh1(0, k * r) + lattice_sum)
+    return Sₗ
 end
 
 """
-    S_0()
+    lattice_sums_calculation(x, csts, Sₗ; c=0.6, nb_terms=100)
+
+Compute the Green's function using lattice sums.
+Input arguments:
+
+  - `x`: evaluation point
+  - `csts`: tuple of constants `(β, k, d, M, L)`
+  - `Sₗ`: lattice sum coefficients
+  - `c`: cutoff value
+  - `nb_terms`: number of terms in the sum
+
+Keyword arguments:
+
+  - `c`: cutoff value
+  - `nb_terms`: number of terms in the sum
+
+Returns the value of the Green's function at the point `x`.
 """
-function S_0(β, k, d, M)
+function lattice_sums_calculation(x, csts, Sₗ::AbstractArray; c=0.6, nb_terms=100)
+
+    β, k, d, M, L = csts
+
+    if x[2] > c
+        green_function_eigfct_exp(x; k=k, α=β, nb_terms=nb_terms) # to modify for general periodicity
+    else
+        r = √(x[1]^2 + x[2]^2)
+        θ = atan(x[2], x[1])
+
+        res_ls = Sₗ[1] * besselj0(k * r)
+        for l ∈ 1:L
+            res_ls += 2 * Sₗ[l + 1] * besselj(l, k * r) * cos(l * (π / 2 - θ))
+        end
+        return -im / 4 * (hankelh1(0, k * r) + res_ls)
+    end
+end
+
+"""
+    S₀(β, k, d, M)
+
+Compute the lattice sum S₀.
+
+Input arguments:
+
+  - `β`: parameter β.
+  - `k`: parameter k.
+  - `d`: parameter d.
+  - `M`: number of terms in the sum.
+
+Returns the value of the lattice sum S₀.
+"""
+function S₀(β, k, d, M)
 
     C_euler = 0.57721566490153286060651209008240243104215933593992
     p = 2π / d
@@ -40,7 +96,18 @@ function S_0(β, k, d, M)
 end
 
 """
-    S_even()
+    S_even(l, β, k, d, M)
+
+Compute the lattice sum Sₗ for even values of `l`.
+Input arguments:
+
+  - `l`: integer value.
+  - `β`: parameter β.
+  - `k`: parameter k.
+  - `d`: parameter d.
+  - `M`: number of terms in the sum.
+
+Returns the value of the lattice sum Sₗ for even values of `l`.
 """
 function S_even(l, β, k, d, M)
 
@@ -72,6 +139,21 @@ function S_even(l, β, k, d, M)
     im / π * sum_2
 end
 
+"""
+    S_odd(l, β, k, d, M)
+
+Compute the lattice sum Sₗ for odd values of `l`.
+
+Input arguments:
+
+  - `l`: integer value.
+  - `β`: parameter β.
+  - `k`: parameter k.
+  - `d`: parameter d.
+  - `M`: number of terms in the sum.
+
+Returns the value of the lattice sum Sₗ for odd values of `l`.
+"""
 function S_odd(l, β, k, d, M)
 
     p = 2π / d
@@ -103,17 +185,33 @@ function S_odd(l, β, k, d, M)
 end
 
 """
-    bernoulli()
-"""
-function bernoulli(n, x)
+    bernoulli(n, x)
 
-    res_bernouilli = 0
-    for k ∈ 0:n
-        for l ∈ 0:k
-            res_bernouilli += 1 / (k + 1) * (-1)^l * binomial(k, l) * (x + l)^n
-        end
+Compute the Bernoulli polynomial of degree `n` evaluated at `x`.
+Input arguments:
+
+  - `n`: degree of the Bernoulli polynomial.
+  - `x`: value at which the polynomial is evaluated.
+
+Returns the nth Bernoulli polynomial evaluated at `x`.
+"""
+function bernoulli(n::Integer, x)
+    res_bernoulli = zero(x)
+    for k ∈ 0:n, l ∈ 0:k
+        res_bernoulli += 1 / (k + 1) * (-1)^l * binomial(k, l) * (x + l)^n
     end
-    res_bernouilli
+    res_bernoulli
 end
 
+"""
+    asin_ls(x)
+
+Compute the inverse sine function (arcsine function) for values outside of the interval [-1,1].
+Input arguments:
+
+  - `x`: real values outside the interval [-1,1].
+
+Returns the inverse sine function (arcsine function) evaluated at `x`. For values inside the
+interval [-1,1], use the standard `asin` function.
+"""
 asin_ls(x) = -log(√(Complex(1 - x^2)) + x * im) * im

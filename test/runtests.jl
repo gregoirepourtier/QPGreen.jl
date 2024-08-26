@@ -87,3 +87,11 @@ lines!(ax3, x, y_3)
 
 display(GLMakie.Screen(), f1)
 display(GLMakie.Screen(), f2)
+
+
+using GreenFunction
+using Test
+
+@testset "MyPkg.jl" begin
+    # Write your tests here.
+end

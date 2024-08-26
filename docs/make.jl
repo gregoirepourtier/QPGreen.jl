@@ -1,14 +1,14 @@
-using MyPkg
+using GreenFunction
 using Documenter
 
-DocMeta.setdocmeta!(MyPkg, :DocTestSetup, :(using MyPkg); recursive=true)
+DocMeta.setdocmeta!(GreenFunction, :DocTestSetup, :(using GreenFunction); recursive=true)
 
 makedocs(;
-    modules=[MyPkg],
+    modules=[GreenFunction],
     authors="gregoirepourtier <gpourtier@icloud.com> and contributors",
-    sitename="MyPkg.jl",
+    sitename="GreenFunction.jl",
     format=Documenter.HTML(;
-        canonical="https://gregoirepourtier.github.io/MyPkg.jl",
+        canonical="https://gregoirepourtier.github.io/GreenFunction.jl",
         edit_link="main",
         assets=String[],
     ),
@@ -18,6 +18,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/gregoirepourtier/MyPkg.jl",
+    repo="github.com/gregoirepourtier/GreenFunction.jl",
     devbranch="main",
 )

@@ -1,14 +1,14 @@
 ```@meta
-CurrentModule = MyPkg
+CurrentModule = GreenFunction
 ```
 
-# MyPkg
+# GreenFunction
 
-Documentation for [MyPkg](https://github.com/gregoirepourtier/MyPkg.jl).
+Documentation for [GreenFunction](https://github.com/gregoirepourtier/GreenFunction.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [MyPkg]
+Modules = [GreenFunction]
 ```

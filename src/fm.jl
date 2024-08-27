@@ -24,7 +24,7 @@ function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k; degree_legendre=5) where 
     αⱼ₁ = α + j₁
     βⱼ₁ = abs(αⱼ₁) <= k ? √(k^2 - αⱼ₁^2) : im * √(αⱼ₁^2 - k^2)
 
-    if βⱼ₁ == j₂ * π / c̃ || βⱼ₁ == -j₂ * π / c̃
+    if βⱼ₁ == (j₂ * π / c̃) || βⱼ₁ == (-j₂ * π / c̃)
         @error "Unexpected Behaviour in get_K̂ⱼ"
     end
 
@@ -99,7 +99,7 @@ function get_F̂ⱼ(j₁, j₂, c̃, ε, Yε::T, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_
 
         f₀_F̂ⱼ(x) = x * log(x) * Yε(x)
 
-        integral = dot(w, quad.(f₀_F̂ⱼ, ξ, 0, 2 * ε))
+        integral = dot(w, quad.(f₀_F̂ⱼ, ξ, 0.0, 2 * ε))
 
         F̂₁ⱼ = -1 / (2 * √(π * c̃)) * integral
         F̂₂ⱼ = 0

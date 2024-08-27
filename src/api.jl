@@ -42,13 +42,11 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
     Φ̂₁ⱼ = fftshift(Φ̂₁ⱼ)
     Φ̂₂ⱼ = fftshift(Φ̂₂ⱼ)
 
-    ## ifft compare to evaluation_Φ₁
-
     fourier_coeffs_grid = zeros(eltype(Φ̂₁ⱼ), N, M)
     for i ∈ 1:N
         for j ∈ 1:M
-            j₁ = grid_X[i, j]
-            j₂ = grid_Y[i, j]
+            j₁ = -grid_size + i - 1
+            j₂ = -grid_size + j - 1
 
             # a) Calculate Fourier Coefficients K̂ⱼ
             K̂ⱼ = get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k)

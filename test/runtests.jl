@@ -2,11 +2,7 @@ using Pkg
 
 Pkg.activate("test/Project.toml")
 
-using Test
-using GreenFunction
-using LinearAlgebra
-using GLMakie
-using StaticArrays
+using Test, GreenFunction, LinearAlgebra, GLMakie, SpecialFunctions
 
 function plot_grid()
 
@@ -37,25 +33,31 @@ function test_evaluation_GF(x, csts, grid_size)
     calculation_result
 end
 
-x = SVector(10.0, 0.4)
-csts = (0.3, 0.6, 1.0, 10.0, 0.1)
+X, Y = (0.0, 0.01 * 2π)
+r, θ = (√(X^2 + Y^2), atan(Y, X))
+
+
+α, c, c̃, k, ε = (√2 / (2 * π), 0.6, 1.0, 2 / (2 * π), 0.1)
+csts = (α, c, c̃, k, ε)
+
+# Test to match parameter from the paper (Linton, 1998)
+d = 2π;
+β = α;
+(X / d == 0.0, Y / d == 0.01, k * d == 2, β * d == √2, r < d)
+
 for i ∈ 1:7
     N = 2^i
-    res = test_evaluation_GF(x, csts, N)
-    println(norm(res))
+    res = test_evaluation_GF((X, Y), csts, N)
+    println(res)
 end
-@time test_evaluation_GF(x, csts, 10)
+@time test_evaluation_GF((X, Y), csts, 50)
 
-res_eig = GreenFunction.green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=1000)
-res_eig = GreenFunction.green_function_eigfct_exp(x; k=10, α=0.3, nb_terms=50)
-
-res_img = GreenFunction.green_function_img_exp(x; k=10, α=0.3, nb_terms=200000)
-
-norm(res_eig)
-norm(res_img)
+res_eig = GreenFunction.green_function_eigfct_exp((X, Y); k=k, α=α, nb_terms=1000)
+res_img = GreenFunction.green_function_img_exp((X, Y); k=k, α=α, nb_terms=200000)
 
 
-# Test build cut-off functions and derivatives
+
+## Test build cut-off functions and derivatives ##
 c̃ = 2.0
 c = 1.0
 x = collect((-c̃ - 0.5):0.01:(c̃ + 0.5));
@@ -88,10 +90,9 @@ lines!(ax3, x, y_3)
 display(GLMakie.Screen(), f1)
 display(GLMakie.Screen(), f2)
 
+# using GreenFunction
+# using Test
 
-using GreenFunction
-using Test
-
-@testset "GreenFunction.jl" begin
-    # Write your tests here.
-end
+# @testset "GreenFunction.jl" begin
+#     # Write your tests here.
+# end

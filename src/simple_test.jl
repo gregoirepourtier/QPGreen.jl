@@ -52,13 +52,13 @@ fftshift(t1)
 
 ### 2D IFFT ###
 
-res_ifft_2D = (2 * √(π * c̃)) .* ifft(t1)
-res_ifft_2D_API = (2 * √(π * c̃)) .* ifft(fftshift(t2))
+res_ifft_2D = (2 * √(π * c̃)) .* ifft(ifftshift(t1))
+res_ifft_2D_API = (2 * √(π * c̃)) .* ifft(ifftshift(t2))
 eval_f
 
 
 
-## Normal Indices
+# Normal Indices test
 res_fft_2D = zeros(Complex{Float64}, size(eval_f))
 for component1 ∈ 1:(2 * N), component2 ∈ 1:(2 * N)
     res_tmp = 0

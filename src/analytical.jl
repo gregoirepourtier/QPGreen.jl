@@ -1,5 +1,10 @@
 #%% Implementation of the α-quasi-periodic Green function for the 2D Helmholtz equation
 
+#= To change
+modify function to compute series for the general quasi-periodic Green function (pass periodicity 
+parameter as argument)
+=#
+
 """
     green_function_im_exp(z; k=10, α=0.3, nb_terms=100)
 

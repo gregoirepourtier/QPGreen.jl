@@ -42,7 +42,7 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
     Φ̂₁ⱼ = fftshift(Φ̂₁ⱼ)
     Φ̂₂ⱼ = fftshift(Φ̂₂ⱼ)
 
-    fourier_coeffs_grid = zeros(Complex{Float64}, N, M)
+    fourier_coeffs_grid = zeros(eltype(Φ̂₁ⱼ), N, M)
     for i ∈ 1:N
         for j ∈ 1:M
             j₁ = grid_X[i, j]
@@ -60,7 +60,7 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
         end
     end
 
-    _Lₙ = 1 / (2 * √(π * c̃)) .* ifft(fourier_coeffs_grid) # ifft(ifftshift(fourier_coeffs_grid))
+    _Lₙ = 1 / (2 * √(π * c̃)) .* ifft(fftshift(fourier_coeffs_grid))
     Lₙ = fftshift(_Lₙ)
 
     return Lₙ
@@ -150,7 +150,7 @@ function build_χ(x, c̃, c)
         cst_right = 1 / integral_right
         return cst_right * dot(w, quad.(g_right, ξ, x, c₁))
     else
-        @error "Problem with the given point"
+        @error "Problem with the given point in χ"
     end
 end
 
@@ -190,7 +190,7 @@ function build_χ_der(x, c̃, c)
         cst_right = 1 / integral_right
         return cst_right * g_right.(x)
     else
-        @error "Problem with the given point"
+        @error "Problem with the given point in χ'"
     end
 end
 
@@ -220,7 +220,7 @@ function build_Yε(x, ε)
         cst = 1 / integral
         return cst * dot(w, quad.(g, ξ, x, 2 * ε))
     else
-        @error "x is out of bounds" # Change error message
+        @error "error treating x in Yε"
     end
 end
 
@@ -251,7 +251,7 @@ function build_Yε_der(x, ε)
         cst = 1 / integral
         return cst * g.(x)
     else
-        @error "x is out of bounds" # Change error message
+        @error "error treating x in Yε'"
     end
 end
 
@@ -270,8 +270,7 @@ function build_Yε_der_2nd(x, ε)
 
     g(x) = -5 * (ε - x)^4 * (2 * ε - x)^5 - 5 * (ε - x)^5 * (2 * ε - x)^4
 
-    # 2 ≠ options here  
-    g_primitive(x) = (ε - x)^5 * (2 * ε - x)^5 # (-ε - x)^5 * (-2 * ε - x)^5
+    g_primitive(x) = (ε - x)^5 * (2 * ε - x)^5
 
     ξ, w = gausslegendre(5)
 
@@ -284,6 +283,6 @@ function build_Yε_der_2nd(x, ε)
         cst = 1 / integral
         return cst * g.(x)
     else
-        @error "x is out of bounds" # Change error message
+        @error "error treating x in Yε''"
     end
 end

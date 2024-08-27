@@ -34,11 +34,11 @@ for component1 ∈ (-N):(N - 1), component2 ∈ (-N):(N - 1)
                        exp(-im * i * component1 * π / N - im * j * π * component2 / N)
         end
     end
-    if (component1 + component2) % 2 == 0
-        res_fft_2D[component1 + N + 1, component2 + N + 1] = res_tmp
-    else
-        res_fft_2D[component1 + N + 1, component2 + N + 1] = -res_tmp
-    end
+    # if (component1 + component2) % 2 == 0
+    #     res_fft_2D[component1 + N + 1, component2 + N + 1] = res_tmp
+    # else
+    #     res_fft_2D[component1 + N + 1, component2 + N + 1] = -res_tmp
+    # end
 end
 
 t1 = res_fft_2D
@@ -53,7 +53,7 @@ fftshift(t1)
 ### 2D IFFT ###
 
 res_ifft_2D = (2 * √(π * c̃)) .* ifft(ifftshift(t1))
-res_ifft_2D_API = (2 * √(π * c̃)) .* ifft(ifftshift(t2))
+res_ifft_2D_API = (2 * √(π * c̃)) .* ifft(fftshift(t2))
 eval_f
 
 
@@ -71,3 +71,10 @@ for component1 ∈ 1:(2 * N), component2 ∈ 1:(2 * N)
     res_fft_2D[component1, component2] = res_tmp
 end
 res_fft_2D
+
+
+
+
+# FFT well done? Simple test wrong sign
+# IFFT same question and shift, normalization constant
+# why the series expansion not same formula as in the Linton paper?

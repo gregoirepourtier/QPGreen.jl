@@ -2,10 +2,7 @@ using Pkg
 
 Pkg.activate("test/Project.toml")
 
-using Test
-using StaticArrays
-using GreenFunction
-using SpecialFunctions
+using Test, GreenFunction, SpecialFunctions
 
 
 X = 0.0

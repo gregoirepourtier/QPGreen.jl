@@ -8,6 +8,7 @@ using FastGaussQuadrature
 using Interpolations
 
 include("analytical.jl")
+include("cut-off_function.jl")
 include("utils.jl")
 include("fm.jl")
 include("api.jl")

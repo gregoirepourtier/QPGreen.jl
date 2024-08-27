@@ -42,6 +42,8 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
     Φ̂₁ⱼ = fftshift(Φ̂₁ⱼ)
     Φ̂₂ⱼ = fftshift(Φ̂₂ⱼ)
 
+    ## ifft compare to evaluation_Φ₁
+
     fourier_coeffs_grid = zeros(eltype(Φ̂₁ⱼ), N, M)
     for i ∈ 1:N
         for j ∈ 1:M
@@ -60,8 +62,8 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
         end
     end
 
-    _Lₙ = 1 / (2 * √(π * c̃)) .* ifft(fftshift(fourier_coeffs_grid))
-    Lₙ = fftshift(_Lₙ)
+    Lₙ = (2 * √(π * c̃)) .* ifft(fftshift(fourier_coeffs_grid))
+    # Lₙ = fftshift(_Lₙ)
 
     return Lₙ
 end
@@ -111,178 +113,5 @@ function fm_method_calculation(x, csts, Lₙ, Yε::T; α=0.3, k=10.0, nb_terms=1
         G_x = exp(im * α * x[1]) * K_t_x₂
 
         return G_x
-    end
-end
-
-"""
-    build_χ(x, c̃, c)
-
-Build the cut-off function χ.
-Input arguments:
-
-  - x: point at which the cut-off function is evaluated
-  - c̃: parameter of the cut-off function
-  - c: parameter of the cut-off function
-
-Returns the value of the cut-off function at x.
-"""
-function build_χ(x, c̃, c)
-
-    c₁ = (c + c̃) / 2
-    c₂ = c
-
-    # 2 ≠ options here -> other one leads to discontinuity in the derivative
-    g_left(x) = (-c₁ - x)^5 * (-c₂ - x)^5 # (c₁ - x)^5 * (c₂ - x)^5 
-    g_right(x) = (c₁ - x)^5 * (c₂ - x)^5 # (-c₁ - x)^5 * (-c₂ - x)^5
-
-    ξ, w = gausslegendre(5)
-
-    if abs(x) >= c₁
-        return 0
-    elseif abs(x) <= c₂
-        return 1
-    elseif x < -c₂ && x > -c₁
-        integral_left = dot(w, quad.(g_left, ξ, -c₁, -c₂))
-        cst_left = 1 / integral_left
-        return cst_left * dot(w, quad.(g_left, ξ, -c₁, x))
-    elseif x > c₂ && x < c₁
-        integral_right = dot(w, quad.(g_right, ξ, c₂, c₁))
-        cst_right = 1 / integral_right
-        return cst_right * dot(w, quad.(g_right, ξ, x, c₁))
-    else
-        @error "Problem with the given point in χ"
-    end
-end
-
-"""
-    build_χ_der(x, c̃, c)
-
-Build the derivative of the cut-off function χ.
-Input arguments:
-
-  - x: point at which the derivative of the cut-off function is evaluated
-  - c̃: parameter of the cut-off function
-  - c: parameter of the cut-off function
-
-Returns the value of the derivative of the cut-off function at x.
-"""
-function build_χ_der(x, c̃, c)
-
-    c₁ = (c + c̃) / 2
-    c₂ = c
-
-    # 2 ≠ options here  
-    g_left(x) = (-c₁ - x)^5 * (-c₂ - x)^5 # (c₁ - x)^5 * (c₂ - x)^5 
-    g_right(x) = (c₁ - x)^5 * (c₂ - x)^5 # (-c₁ - x)^5 * (-c₂ - x)^5
-
-    ξ, w = gausslegendre(5)
-
-    if abs(x) >= c₁
-        return 0
-    elseif abs(x) <= c₂
-        return 0
-    elseif x < -c₂ && x > -c₁
-        integral_left = dot(w, quad.(g_left, ξ, -c₁, -c₂))
-        cst_left = 1 / integral_left
-        return cst_left * g_left.(x)
-    elseif x > c₂ && x < c₁
-        integral_right = dot(w, quad.(g_right, ξ, c₂, c₁))
-        cst_right = 1 / integral_right
-        return cst_right * g_right.(x)
-    else
-        @error "Problem with the given point in χ'"
-    end
-end
-
-"""
-    build_Yε(x, ε)
-
-Build the cut-off function Yε.
-Input arguments:
-
-  - x: point at which the cut-off function is evaluated
-  - ε: parameter of the cut-off function
-
-Returns the value of the cut-off function at x.
-"""
-function build_Yε(x, ε)
-
-    g(x) = (ε - x)^5 * (2 * ε - x)^5 # (-ε - x)^5 * (-2 * ε - x)^5
-
-    ξ, w = gausslegendre(5)
-
-    if x >= 2 * ε
-        return 0
-    elseif 0 <= x <= ε
-        return 1
-    elseif ε < x < 2 * ε
-        integral = dot(w, quad.(g, ξ, ε, 2 * ε))
-        cst = 1 / integral
-        return cst * dot(w, quad.(g, ξ, x, 2 * ε))
-    else
-        @error "error treating x in Yε"
-    end
-end
-
-"""
-    build_Yε_der(x, ε)
-
-Build the derivative of the cut-off function Yε.
-Input arguments:
-
-  - x: point at which the derivative of the cut-off function is evaluated
-  - ε: parameter of the cut-off function
-
-Returns the value of the derivative of the cut-off function at x.
-"""
-function build_Yε_der(x, ε)
-
-    # 2 ≠ options here  
-    g(x) = (ε - x)^5 * (2 * ε - x)^5 # (-ε - x)^5 * (-2 * ε - x)^5
-
-    ξ, w = gausslegendre(5)
-
-    if x >= 2 * ε
-        return 0
-    elseif 0 <= x <= ε
-        return 0
-    elseif ε < x < 2 * ε
-        integral = dot(w, quad.(g, ξ, ε, 2 * ε))
-        cst = 1 / integral
-        return cst * g.(x)
-    else
-        @error "error treating x in Yε'"
-    end
-end
-
-"""
-    build_Yε_der_2nd(x, ε)
-
-Build the 2nd derivative of the cut-off function Yε.
-Input arguments:
-
-  - x: point at which the 2nd derivative of the cut-off function is evaluated
-  - ε: parameter of the cut-off function
-
-Returns the value of the 2nd derivative of the cut-off function at x.
-"""
-function build_Yε_der_2nd(x, ε)
-
-    g(x) = -5 * (ε - x)^4 * (2 * ε - x)^5 - 5 * (ε - x)^5 * (2 * ε - x)^4
-
-    g_primitive(x) = (ε - x)^5 * (2 * ε - x)^5
-
-    ξ, w = gausslegendre(5)
-
-    if x >= 2 * ε
-        return 0
-    elseif 0 <= x <= ε
-        return 0
-    elseif ε < x < 2 * ε
-        integral = dot(w, quad.(g_primitive, ξ, ε, 2 * ε))
-        cst = 1 / integral
-        return cst * g.(x)
-    else
-        @error "error treating x in Yε''"
     end
 end

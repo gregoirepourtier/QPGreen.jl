@@ -1,5 +1,17 @@
 # Some experimental code
 
+function plot_grid()
+
+    # Generate the meshgrid
+    x, y = (π, 1.0)
+    N = 32
+    grid_X, grid_Y = GreenFunction.gen_grid_FFT(x, y, N)
+
+    # Plot the meshgrid
+    meshgrid_plot = scatter(grid_X[:], grid_Y[:])
+end
+# plot_grid()
+
 
 ### Test Cut-off function ###
 using FastGaussQuadrature

@@ -22,7 +22,7 @@ y_1 = GreenFunction.build_Yε.(x, ε);
 y_2 = GreenFunction.build_Yε_der.(x, ε);
 y_3 = GreenFunction.build_Yε_der_2nd.(x, ε);
 
-f2 = Figure();
+f2 = Figure()
 ax1 = Axis(f2[1, 1]; xticks=(0.0:0.1:1.0))
 ax2 = Axis(f2[2, 1]; xticks=(0.0:0.1:1.0))
 ax3 = Axis(f2[3, 1]; xticks=(0.0:0.1:1.0))

@@ -4,7 +4,7 @@ using LinearAlgebra
 using SpecialFunctions
 using LazyGrids
 using FFTW
-using FastGaussQuadrature
+using Integrals
 using Interpolations
 
 include("analytical.jl")

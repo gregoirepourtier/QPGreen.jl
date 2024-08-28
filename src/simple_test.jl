@@ -50,6 +50,8 @@ t2
 fftshift(t2)
 fftshift(t1)
 
+
+
 ### 2D IFFT ###
 
 res_ifft_2D = (2 * √(π * c̃)) .* ifft(ifftshift(t1))
@@ -74,7 +76,9 @@ res_fft_2D
 
 
 
+using Integrals
+prob = IntegralProblem((x,p) -> cos(x), (0.0, 1.0))
+solve(prob, HCubatureJL()).u 
 
-# FFT well done? Simple test wrong sign
-# IFFT same question and shift, normalization constant
-# why the series expansion not same formula as in the Linton paper?
+# x = 0:0.1:(2 * pi)
+# @. my_sin(x) ≈ sin(x)

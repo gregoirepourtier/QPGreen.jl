@@ -18,3 +18,5 @@ end;
 
 preparation_result = GreenFunction.fm_method_preparation(params, χ_der, Yε, Yε_der, Yε_der_2nd; grid_size=10);
 GreenFunction.fm_method_calculation((X,Y), params, preparation_result, Yε; α=α, k=k, nb_terms=32)
+
+# -10.981854819725621 + 0.04651521507073543im

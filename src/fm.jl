@@ -34,7 +34,7 @@ function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k) where {T}
     f₂_K̂ⱼ(x, p) = exp(im * βⱼ₁ * x) * χ_der(x) * exp(im * j₂ * π / c̃ * x)
 
     prob1 = IntegralProblem(f₁_K̂ⱼ, (0.0, c̃))
-    prob1 = IntegralProblem(f₂_K̂ⱼ, (0.0, c̃))
+    prob2 = IntegralProblem(f₂_K̂ⱼ, (0.0, c̃))
 
     integral_1 = solve(prob1, HCubatureJL()).u
     integral_2 = solve(prob2, HCubatureJL()).u

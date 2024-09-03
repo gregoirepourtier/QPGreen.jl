@@ -15,7 +15,7 @@ parameter as argument)
 Returns the value of the α-quasi-periodic Green function at the field point (x₁, x₂) due to a source at (y₁, y₂)
 defined by the basic image expansion.
 """
-function green_function_img_exp(z; k=10, α=0.3, nb_terms=100)
+function green_function_img_exp(z, k, α; nb_terms=100)
 
     G = zero(Complex{eltype(z)})
 
@@ -40,7 +40,7 @@ end
 Returns the value of the α-quasi-periodic Green function at the field point (x₁, x₂) due to a source at (y₁, y₂)
 defined by the basic eigenfunction expansion.
 """
-function green_function_eigfct_exp(z; k=10, α=0.3, nb_terms=100)
+function green_function_eigfct_exp(z, k, α; nb_terms=100)
 
     G = zero(Complex{eltype(z)})
 

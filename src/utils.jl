@@ -13,7 +13,7 @@ Input arguments:
 
 Returns the meshgrid of the grid.
 """
-gen_grid_FFT(x, y, N::Integer) = ndgrid(range(-x, x; length=2 * N), range(-y, y; length=2 * N))
+gen_grid_FFT(x, y, N::Integer) = ndgrid(range(-x, x - x / N; length=2 * N), range(-y, y - y / N; length=2 * N))
 
 """
     get_grid_pts(grid_X, grid_Y, total_pts)

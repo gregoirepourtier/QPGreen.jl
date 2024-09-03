@@ -1,5 +1,4 @@
 # Simple test to check the correctness of the 2D FFT and IFFT implementation.
-
 include("GreenFunction.jl")
 using FFTW, LinearAlgebra
 
@@ -21,28 +20,27 @@ end
 eval_f
 # eval_f = fftshift(eval_f)
 
+eval_f1 = transpose(map((x,y) -> f((x,y)), grid_X, grid_Y))
+eval_f2 = transpose(map((x,y) -> f((x,y)), grid_X, grid_Y))
+
 ### 2D FFT ###
-fft_res_2D_API = 1 / (2 * √(π * c̃)) .* fft(eval_f)
+fft_res_2D_API = 1 / (2 * √(π * c̃)) .* fftshift(fft(fftshift(eval_f1)))
 
 
-res_fft_2D = zeros(Complex{Float64}, size(eval_f));
+res_fft_2D = zeros(Complex{Float64}, size(eval_f2));
 for component1 ∈ (-N):(N - 1), component2 ∈ (-N):(N - 1)
     res_tmp = 0
     for i ∈ (-N):(N - 1)
         for j ∈ (-N):(N - 1)
-            res_tmp += eval_f[i + N + 1, j + N + 1] * 1 / (2 * √(π * c̃)) *
+            res_tmp += eval_f2[i + N + 1, j + N + 1] * 1 / (2 * √(π * c̃)) *
                        exp(-im * i * component1 * π / N - im * j * π * component2 / N)
         end
     end
-    # if (component1 + component2) % 2 == 0
-    #     res_fft_2D[component1 + N + 1, component2 + N + 1] = res_tmp
-    # else
-    #     res_fft_2D[component1 + N + 1, component2 + N + 1] = -res_tmp
-    # end
+    res_fft_2D[component1 + N + 1, component2 + N + 1] = res_tmp
 end
 
 t1 = res_fft_2D
-t2 = fftshift(fft_res_2D_API)
+t2 = fft_res_2D_API
 isapprox(norm(t1), norm(t2); rtol=1e-10)
 
 
@@ -53,10 +51,11 @@ fftshift(t1)
 
 
 ### 2D IFFT ###
-
-res_ifft_2D = (2 * √(π * c̃)) .* ifft(ifftshift(t1))
-res_ifft_2D_API = (2 * √(π * c̃)) .* ifft(fftshift(t2))
+res_ifft_2D = (2 * √(π * c̃)) .* fftshift(ifft(fftshift(t1)))
+res_ifft_2D_API = (2 * √(π * c̃)) .* fftshift(ifft(fftshift(t2)))
 eval_f
+eval_f1
+eval_f2
 
 
 

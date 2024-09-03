@@ -37,15 +37,13 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
     _evaluation_Φ₂ = view(set_of_pt_grid, :, 1) .* _evaluation_Φ₁
     evaluation_Φ₂ = transpose(reshape(_evaluation_Φ₂, (N, M)))
 
-    Φ̂₁ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₁)
-    Φ̂₂ⱼ = 1 / (2 * √(π * c̃)) .* fft(evaluation_Φ₂)
-    Φ̂₁ⱼ = fftshift(Φ̂₁ⱼ)
-    Φ̂₂ⱼ = fftshift(Φ̂₂ⱼ)
+    Φ̂₁ⱼ = 1 / (2 * √(π * c̃)) .* fftshift(fft(fftshift(evaluation_Φ₁)))
+    Φ̂₂ⱼ = 1 / (2 * √(π * c̃)) .* fftshift(fft(fftshift(evaluation_Φ₂)))
 
     fourier_coeffs_grid = zeros(eltype(Φ̂₁ⱼ), N, M)
     for i ∈ 1:N
+        j₁ = -grid_size + i - 1
         for j ∈ 1:M
-            j₁ = -grid_size + i - 1
             j₂ = -grid_size + j - 1
 
             # a) Calculate Fourier Coefficients K̂ⱼ
@@ -60,8 +58,7 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
         end
     end
 
-    Lₙ = (2 * √(π * c̃)) .* ifft(fftshift(fourier_coeffs_grid))
-    # Lₙ = fftshift(_Lₙ)
+    Lₙ = (2 * √(π * c̃)) .* fftshift(ifft(fftshift(fourier_coeffs_grid)))
 
     return Lₙ
 end
@@ -93,14 +90,14 @@ function fm_method_calculation(x, csts, Lₙ, Yε::T; α=0.3, k=10.0, nb_terms=1
     # 2. Calculation
     if abs(x[2]) > c
         @info "The point is outside the domain D_c"
-        return green_function_eigfct_exp(x; k=k, α=α, nb_terms=nb_terms)
+        return green_function_eigfct_exp(x, k, α; nb_terms=nb_terms)
     else
         @info "The point is inside the domain D_c"
         t = get_t(x[1])
 
         # Bicubic Interpolation to get Lₙ(t, x₂)
-        xs = range(-π, π; length=N)
-        ys = range(-c̃, c̃; length=N)
+        xs = range(-π, π - π / (N/2); length=N)
+        ys = range(-c̃, c̃ - c̃ / (N/2); length=N)
         interp_cubic = cubic_spline_interpolation((xs, ys), Lₙ)
         Lₙ_t_x₂ = interp_cubic(t, x[2])
 

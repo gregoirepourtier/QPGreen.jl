@@ -29,7 +29,6 @@ function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k) where {T}
     end
 
     # using quadrature rule to calculate the integrals but can be replaced by 1D FFT
-
     f₁_K̂ⱼ(x, p) = exp(im * βⱼ₁ * x) * χ_der(x) * exp(-im * j₂ * π / c̃ * x)
     f₂_K̂ⱼ(x, p) = exp(im * βⱼ₁ * x) * χ_der(x) * exp(im * j₂ * π / c̃ * x)
 

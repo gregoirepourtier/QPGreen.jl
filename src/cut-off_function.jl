@@ -12,32 +12,32 @@ Returns the value of the cut-off function at x.
 """
 function build_χ(x, c̃, c)
 
-    c₁ = (c + c̃) / 2
-    c₂ = c
+    c₁ = c
+    c₂ = (c + c̃) / 2
 
-    g_left(x, p) = (-c₁ - x)^8 * (-c₂ - x)^8
-    g_right(x, p) = (c₁ - x)^8 * (c₂ - x)^8
+    g_left(x, p) = (x + c₁)^8 * (x + c₂)^8
+    g_right(x, p) = (x - c₁)^8 * (x - c₂)^8
 
-    if abs(x) >= c₁
+    if abs(x) >= c₂
         return 0
-    elseif abs(x) <= c₂
+    elseif abs(x) <= c₁
         return 1
-    elseif x < -c₂ && x > -c₁
-        prob1 = IntegralProblem(g_left, (-c₁, -c₂))
-        pol_left(x1) = solve(IntegralProblem(g_left, (-c₁, x1)), HCubatureJL()).u
+    elseif -c₂ < x < -c₁
+        prob1 = IntegralProblem(g_left, (-c₂, -c₁))
+        pol_left(x1) = solve(IntegralProblem(g_left, (-c₂, x1)), HCubatureJL()).u
 
         integral_left = solve(prob1, HCubatureJL()).u
         cst_left = 1 / integral_left
 
         return cst_left * pol_left.(x)
-    elseif x > c₂ && x < c₁
-        prob1 = IntegralProblem(g_right, (c₂, c₁))
-        pol_right(x1) = solve(IntegralProblem(g_right, (x1, c₁)), HCubatureJL()).u
+    elseif c₁ < x < c₂
+        prob1 = IntegralProblem(g_right, (c₁, c₂))
+        pol_right(x1) = solve(IntegralProblem(g_right, (c₁, x1)), HCubatureJL()).u
 
         integral_right = solve(prob1, HCubatureJL()).u
         cst_right = 1 / integral_right
 
-        return cst_right * pol_right.(x)
+        return 1 - cst_right * pol_right.(x)
     else
         @error "Problem with the given point in χ"
     end
@@ -57,28 +57,28 @@ Returns the value of the derivative of the cut-off function at x.
 """
 function build_χ_der(x, c̃, c)
 
-    c₁ = (c + c̃) / 2
-    c₂ = c
+    c₁ = c
+    c₂ = (c + c̃) / 2
 
-    g_left(x, p) = (-c₁ - x)^8 * (-c₂ - x)^8
-    g_right(x, p) = (c₁ - x)^8 * (c₂ - x)^8
+    g_left(x, p) = (x + c₁)^8 * (x + c₂)^8
+    g_right(x, p) = (x - c₁)^8 * (x - c₂)^8
 
-    if abs(x) >= c₁
+    if abs(x) >= c₂
         return 0
-    elseif abs(x) <= c₂
+    elseif abs(x) <= c₁
         return 0
-    elseif x < -c₂ && x > -c₁
-        prob = IntegralProblem(g_left, (-c₁, -c₂))
+    elseif -c₂ < x < -c₁
+        prob = IntegralProblem(g_left, (-c₂, -c₁))
 
         integral_left = solve(prob, HCubatureJL()).u
         cst_left = 1 / integral_left
         return cst_left * g_left.(x, 0)
-    elseif x > c₂ && x < c₁
-        prob = IntegralProblem(g_right, (c₂, c₁))
+    elseif c₁ < x < c₂
+        prob = IntegralProblem(g_right, (c₁, c₂))
 
         integral_right = solve(prob, HCubatureJL()).u
         cst_right = 1 / integral_right
-        return cst_right * g_right.(x, 0)
+        return -cst_right * g_right.(x, 0)
     else
         @error "Problem with the given point in χ'"
     end
@@ -97,7 +97,7 @@ Returns the value of the cut-off function at x.
 """
 function build_Yε(x, ε)
 
-    g(x, p) = (ε - x)^8 * (2 * ε - x)^8
+    g(x, p) = (x - ε)^8 * (x - 2 * ε)^8
 
     if x >= 2 * ε
         return 0
@@ -105,11 +105,11 @@ function build_Yε(x, ε)
         return 1
     elseif ε < x < 2 * ε
         prob = IntegralProblem(g, (ε, 2 * ε))
-        pol(x) = solve(IntegralProblem(g, (x, 2 * ε)), HCubatureJL()).u
+        pol(x) = solve(IntegralProblem(g, (ε, x)), HCubatureJL()).u
 
         integral = solve(prob, HCubatureJL()).u
         cst = 1 / integral
-        return cst * pol.(x)
+        return 1 - cst * pol.(x)
     else
         @error "error treating x in Yε"
     end
@@ -128,7 +128,7 @@ Returns the value of the derivative of the cut-off function at x.
 """
 function build_Yε_der(x, ε)
 
-    g(x, p) = (ε - x)^8 * (2 * ε - x)^8
+    g(x, p) = (x - ε)^8 * (x - 2 * ε)^8
 
     if x >= 2 * ε
         return 0
@@ -139,7 +139,7 @@ function build_Yε_der(x, ε)
 
         integral = solve(prob, HCubatureJL()).u
         cst = 1 / integral
-        return cst * g.(x, 0)
+        return -cst * g.(x, 0)
     else
         @error "error treating x in Yε'"
     end
@@ -158,9 +158,9 @@ Returns the value of the 2nd derivative of the cut-off function at x.
 """
 function build_Yε_der_2nd(x, ε)
 
-    g(x) = -8 * (ε - x)^7 * (2 * ε - x)^8 - 8 * (ε - x)^8 * (2 * ε - x)^7
+    g(x) = 8 * (x - ε)^7 * (x - 2 * ε)^8 + 8 * (x - ε)^8 * (x - 2 * ε)^7
 
-    g_primitive(x, p) = (ε - x)^8 * (2 * ε - x)^8
+    g_primitive(x, p) = (x - ε)^8 * (x - 2 * ε)^8
 
     if x >= 2 * ε
         return 0
@@ -171,7 +171,7 @@ function build_Yε_der_2nd(x, ε)
 
         integral = solve(prob, HCubatureJL()).u
         cst = 1 / integral
-        return cst * g.(x)
+        return -cst * g.(x)
     else
         @error "error treating x in Yε''"
     end

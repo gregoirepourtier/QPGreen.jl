@@ -37,8 +37,8 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
     _evaluation_Φ₂ = view(set_of_pt_grid, :, 1) .* _evaluation_Φ₁
     evaluation_Φ₂ = transpose(reshape(_evaluation_Φ₂, (N, M)))
 
-    Φ̂₁ⱼ = 1 / (2 * √(π * c̃)) .* fftshift(fft(fftshift(evaluation_Φ₁)))
-    Φ̂₂ⱼ = 1 / (2 * √(π * c̃)) .* fftshift(fft(fftshift(evaluation_Φ₂)))
+    Φ̂₁ⱼ = 1 / (M * N * grid_size * √(π * c̃)) .* fftshift(fft(fftshift(evaluation_Φ₁)))
+    Φ̂₂ⱼ = 1 / (M * N * grid_size * √(π * c̃)) .* fftshift(fft(fftshift(evaluation_Φ₂)))
 
     fourier_coeffs_grid = zeros(eltype(Φ̂₁ⱼ), N, M)
     for i ∈ 1:N
@@ -58,7 +58,7 @@ function fm_method_preparation(csts, χ_der::T1, Yε::T2, Yε_der::T3, Yε_der_2
         end
     end
 
-    Lₙ = (2 * √(π * c̃)) .* fftshift(ifft(fftshift(fourier_coeffs_grid)))
+    Lₙ = M * N / (2 * √(π * c̃)) .* fftshift(ifft(fftshift(fourier_coeffs_grid)))
 
     return Lₙ
 end
@@ -96,8 +96,8 @@ function fm_method_calculation(x, csts, Lₙ, Yε::T; α=0.3, k=10.0, nb_terms=1
         t = get_t(x[1])
 
         # Bicubic Interpolation to get Lₙ(t, x₂)
-        xs = range(-π, π - π / (N/2); length=N)
-        ys = range(-c̃, c̃ - c̃ / (N/2); length=N)
+        xs = range(-π, π - π / (N / 2); length=N)
+        ys = range(-c̃, c̃ - c̃ / (N / 2); length=N)
         interp_cubic = cubic_spline_interpolation((xs, ys), Lₙ)
         Lₙ_t_x₂ = interp_cubic(t, x[2])
 

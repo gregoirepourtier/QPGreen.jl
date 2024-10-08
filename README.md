@@ -1,4 +1,6 @@
-# Efficient Methods for Computing Quasi-Periodic Green Functions for Helmholtz Equation
+# QPGreen.jl
+
+Toolbox implementing efficient methods for computing Quasi-Periodic Green Functions for the 2D Helmholtz equation.
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://github.com/gregoirepourtier/GreenFunction.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://github.com/gregoirepourtier/GreenFunction.jl/dev/)

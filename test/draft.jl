@@ -5,7 +5,7 @@ function plot_grid()
     # Generate the meshgrid
     x, y = (π, 1.0)
     N = 32
-    grid_X, grid_Y = GreenFunction.gen_grid_FFT(x, y, N)
+    grid_X, grid_Y = QPGreen.gen_grid_FFT(x, y, N)
 
     # Plot the meshgrid
     meshgrid_plot = scatter(grid_X[:], grid_Y[:])
@@ -31,13 +31,13 @@ function g_1(x, c, c̃)
     elseif abs(x) <= c₂
         return 1
     elseif x < -c₂ && x > -c₁
-        integral_left = dot(w, GreenFunction.quad.(g_left, ξ, -c₁, -c₂))
+        integral_left = dot(w, QPGreen.quad.(g_left, ξ, -c₁, -c₂))
         cst_left = 1 / integral_left
-        return cst_left * dot(w, GreenFunction.quad.(g_left, ξ, -c₁, x))
+        return cst_left * dot(w, QPGreen.quad.(g_left, ξ, -c₁, x))
     elseif x > c₂ && x < c₁
-        integral_right = dot(w, GreenFunction.quad.(g_right, ξ, c₂, c₁))
+        integral_right = dot(w, QPGreen.quad.(g_right, ξ, c₂, c₁))
         cst_right = 1 / integral_right
-        return cst_right * dot(w, GreenFunction.quad.(g_right, ξ, x, c₁))
+        return cst_right * dot(w, QPGreen.quad.(g_right, ξ, x, c₁))
     end
 end
 
@@ -57,11 +57,11 @@ function g_1_der(x, c, c̃)
     elseif abs(x) <= c₂
         return 0
     elseif x < -c₂ && x > -c₁
-        integral_left = dot(w, GreenFunction.quad.(g_left, ξ, -c₁, -c₂))
+        integral_left = dot(w, QPGreen.quad.(g_left, ξ, -c₁, -c₂))
         cst_left = 1 / integral_left
         return cst_left * g_left.(x)
     elseif x > c₂ && x < c₁
-        integral_right = dot(w, GreenFunction.quad.(g_right, ξ, c₂, c₁))
+        integral_right = dot(w, QPGreen.quad.(g_right, ξ, c₂, c₁))
         cst_right = 1 / integral_right
         return cst_right * g_right.(x)
     end
@@ -87,11 +87,11 @@ function g_1_der_2nd(x, c, c̃)
     elseif abs(x) <= c₂
         return 0
     elseif x < -c₂ && x > -c₁
-        integral_left = dot(w, GreenFunction.quad.(g_left_primitive, ξ, -c₁, -c₂))
+        integral_left = dot(w, QPGreen.quad.(g_left_primitive, ξ, -c₁, -c₂))
         cst_left = 1 / integral_left
         return cst_left * g_left.(x)
     elseif x > c₂ && x < c₁
-        integral_right = dot(w, GreenFunction.quad.(g_right_primitive, ξ, c₂, c₁))
+        integral_right = dot(w, QPGreen.quad.(g_right_primitive, ξ, c₂, c₁))
         cst_right = 1 / integral_right
         return cst_right * g_right.(x)
     end
@@ -188,9 +188,9 @@ function g_1(x, ε)
     elseif 0 <= x <= ε
         return 1
     elseif ε < x < 2 * ε
-        integral = dot(w, GreenFunction.quad.(g, ξ, ε, 2 * ε))
+        integral = dot(w, QPGreen.quad.(g, ξ, ε, 2 * ε))
         cst = 1 / integral
-        return cst * dot(w, GreenFunction.quad.(g, ξ, x, 2 * ε))
+        return cst * dot(w, QPGreen.quad.(g, ξ, x, 2 * ε))
     else
         @error "x is out of bounds"
     end
@@ -208,7 +208,7 @@ function g_1_der(x, ε)
     elseif 0 <= x <= ε
         return 0
     elseif ε < x < 2 * ε
-        integral = dot(w, GreenFunction.quad.(g, ξ, ε, 2 * ε))
+        integral = dot(w, QPGreen.quad.(g, ξ, ε, 2 * ε))
         cst = 1 / integral
         return cst * g.(x)
     else
@@ -230,7 +230,7 @@ function g_1_der_2nd(x, ε)
     elseif 0 <= x <= ε
         return 0
     elseif ε < x < 2 * ε
-        integral = dot(w, GreenFunction.quad.(g_primitive, ξ, ε, 2 * ε))
+        integral = dot(w, QPGreen.quad.(g_primitive, ξ, ε, 2 * ε))
         cst = 1 / integral
         return cst * g.(x)
     else

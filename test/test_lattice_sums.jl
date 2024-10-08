@@ -2,7 +2,7 @@ using Pkg
 
 Pkg.activate("test/Project.toml")
 
-using Test, GreenFunction, SpecialFunctions
+using Test, QPGreen, SpecialFunctions
 
 # X, Y = (0.0, 0.01 * 2π)
 X, Y = (0.0, 0.002)
@@ -15,8 +15,8 @@ csts = (β, k, d, M, L)
 # Test to match parameter from the paper (Linton, 1998)
 (X / d == 0.0, Y / d == 0.01, k * d == 2, β * d == √2, r < d)
 
-Sl = GreenFunction.lattice_sums_preparation(csts);
-eval_ls = -GreenFunction.lattice_sums_calculation((X, Y), csts, Sl; nb_terms=100)
+Sl = QPGreen.lattice_sums_preparation(csts);
+eval_ls = -QPGreen.lattice_sums_calculation((X, Y), csts, Sl; nb_terms=100)
 
 @test eval_ls == (-0.4595073481223693 - 0.35087920819684576 * im)
 

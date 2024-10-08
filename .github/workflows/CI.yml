@@ -73,6 +73,6 @@ jobs:
         shell: julia --project=docs --color=yes {0}
         run: |
           using Documenter: DocMeta, doctest
-          using GreenFunction
-          DocMeta.setdocmeta!(GreenFunction, :DocTestSetup, :(using GreenFunction); recursive=true)
-          doctest(GreenFunction)
+          using QPGreen
+          DocMeta.setdocmeta!(QPGreen, :DocTestSetup, :(using QPGreen); recursive=true)
+          doctest(QPGreen)

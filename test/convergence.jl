@@ -3,7 +3,7 @@ using Pkg
 Pkg.activate("test/Project.toml")
 
 using Test
-using GreenFunction
+using QPGreen
 using LinearAlgebra
 using GLMakie
 using StaticArrays

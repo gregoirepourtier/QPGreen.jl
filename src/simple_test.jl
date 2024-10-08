@@ -1,13 +1,13 @@
 # Simple test to check the correctness of the 2D FFT and IFFT implementation.
-include("GreenFunction.jl")
+include("QPGreen.jl")
 using FFTW, LinearAlgebra
 
 N = 2
 alpha, c, c̃, k, ε = (0.3, 0.6, 1.0, 10.0, 0.1)
 
-grid_X, grid_Y = GreenFunction.gen_grid_FFT(π, c̃, N)
+grid_X, grid_Y = QPGreen.gen_grid_FFT(π, c̃, N)
 total_pts = (2 * N)^2
-set_of_pt_grid = GreenFunction.get_grid_pts(grid_X, grid_Y, total_pts)
+set_of_pt_grid = QPGreen.get_grid_pts(grid_X, grid_Y, total_pts)
 
 f(x) = 2 * sin(x[1] + x[2])
 

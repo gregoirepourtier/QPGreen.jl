@@ -2,7 +2,7 @@ using Pkg
 
 Pkg.activate("test/Project.toml")
 
-using Test, GreenFunction, SpecialFunctions
+using Test, QPGreen, SpecialFunctions
 
 
 X = 0.0 # 0.0
@@ -16,4 +16,4 @@ csts = (a, M₁, M₂, N, β, k, d)
 # Test to match parameter from the paper (Linton, 1998)
 (X / d == 0.0, Y / d == 0.01, k * d == 2, β * d == √2)
 
--GreenFunction.ewald(X, Y, csts)
+-QPGreen.ewald(X, Y, csts)

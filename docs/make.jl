@@ -1,23 +1,24 @@
-using GreenFunction
+using QPGreen
 using Documenter
 
-DocMeta.setdocmeta!(GreenFunction, :DocTestSetup, :(using GreenFunction); recursive=true)
+DocMeta.setdocmeta!(QPGreen, :DocTestSetup, :(using QPGreen); recursive=true)
 
 makedocs(;
-    modules=[GreenFunction],
-    authors="gregoirepourtier <gpourtier@icloud.com> and contributors",
-    sitename="GreenFunction.jl",
+    modules=[QPGreen],
+    authors="Grégoire Pourtier and Ruming Zhang",
+    sitename="QPGreen.jl",
     format=Documenter.HTML(;
-        canonical="https://gregoirepourtier.github.io/GreenFunction.jl",
+        canonical="https://gregoirepourtier.github.io/QPGreen.jl",
         edit_link="main",
         assets=String[],
     ),
     pages=[
         "Home" => "index.md",
+        "Docstrings" => "docstrings.md",
     ],
 )
 
 deploydocs(;
-    repo="github.com/gregoirepourtier/GreenFunction.jl",
+    repo="github.com/gregoirepourtier/QPGreen.jl",
     devbranch="main",
 )

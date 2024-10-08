@@ -1,14 +1,6 @@
-```@meta
-CurrentModule = GreenFunction
-```
-
-# GreenFunction
-
-Documentation for [GreenFunction](https://github.com/gregoirepourtier/GreenFunction.jl).
-
-```@index
-```
-
-```@autodocs
-Modules = [GreenFunction]
-```
+````@eval
+using Markdown
+Markdown.parse("""
+$(read("../../README.md",String))
+""")
+````

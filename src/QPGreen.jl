@@ -1,4 +1,4 @@
-module GreenFunction
+module QPGreen
 
 using LinearAlgebra
 using SpecialFunctions

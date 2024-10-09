@@ -10,3 +10,6 @@ Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 LazyGrids = "7031d0ef-c40d-4431-b2f8-61a8d2f650db"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+
+[compat]
+LazyGrids = "1"

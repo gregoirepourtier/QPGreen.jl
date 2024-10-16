@@ -1,6 +1,6 @@
 # using Pkg
 # Pkg.activate("test/Project.toml")
-using Test, QPGreen, LinearAlgebra, GLMakie, SpecialFunctions
+using Test, QPGreen, LinearAlgebra, SpecialFunctions
 
 @test 1 == 1
 

@@ -1,11 +1,13 @@
 module QPGreen
 
 using LinearAlgebra
-import Bessels
 using LazyGrids
 using FFTW
 using Integrals
 using Interpolations
+
+import SpecialFunctions
+import Bessels
 
 include("expansions.jl")
 export image_expansion, eigfunc_expansion

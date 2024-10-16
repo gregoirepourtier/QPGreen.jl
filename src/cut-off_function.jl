@@ -1,50 +1,51 @@
-"""
-    build_χ(x, c̃, c)
+# Build the cut-off function χ and Yε and their derivatives from paper [1].
 
-Build the cut-off function χ.
+"""
+    χ(x, c̃, c, n)
+
+Build the cutoff function χ.
 Input arguments:
 
   - x: point at which the cut-off function is evaluated
   - c̃: parameter of the cut-off function
   - c: parameter of the cut-off function
+  - n: order of the polynomial
 
 Returns the value of the cut-off function at x.
 """
-function build_χ(x, c̃, c)
+function χ(x, c, c̃, n)
 
     c₁ = c
     c₂ = (c + c̃) / 2
 
-    g_left(x, p) = (x + c₁)^8 * (x + c₂)^8
-    g_right(x, p) = (x - c₁)^8 * (x - c₂)^8
+    poly_left(x) = (x + c₁)^n * (x + c₂)^n
+    poly_right(x) = (x - c₁)^n * (x - c₂)^n
 
     if abs(x) >= c₂
         return 0
     elseif abs(x) <= c₁
         return 1
     elseif -c₂ < x < -c₁
-        prob1 = IntegralProblem(g_left, (-c₂, -c₁))
-        pol_left(x1) = solve(IntegralProblem(g_left, (-c₂, x1)), HCubatureJL()).u
+        int_pol_left(_x) = quadgk(poly_left, -c₂, _x)[1]
 
-        integral_left = solve(prob1, HCubatureJL()).u
+        integral_left = quadgk(poly_left, -c₂, -c₁)[1]
         cst_left = 1 / integral_left
 
-        return cst_left * pol_left.(x)
+        return cst_left * int_pol_left.(x)
     elseif c₁ < x < c₂
-        prob1 = IntegralProblem(g_right, (c₁, c₂))
-        pol_right(x1) = solve(IntegralProblem(g_right, (c₁, x1)), HCubatureJL()).u
+        int_pol_right(_x) = quadgk(poly_right, c₁, _x)[1]
 
-        integral_right = solve(prob1, HCubatureJL()).u
+        integral_right = quadgk(poly_right, c₁, c₂)[1]
         cst_right = 1 / integral_right
 
-        return 1 - cst_right * pol_right.(x)
+        return 1 - cst_right * int_pol_right.(x)
     else
         @error "Problem with the given point in χ"
     end
 end
 
 """
-    build_χ_der(x, c̃, c)
+    χ_der(x, c̃, c, n)
 
 Build the derivative of the cut-off function χ.
 Input arguments:
@@ -52,127 +53,127 @@ Input arguments:
   - x: point at which the derivative of the cut-off function is evaluated
   - c̃: parameter of the cut-off function
   - c: parameter of the cut-off function
+  - n: order of the polynomial
 
 Returns the value of the derivative of the cut-off function at x.
 """
-function build_χ_der(x, c̃, c)
+function χ_der(x, c, c̃, n)
 
     c₁ = c
     c₂ = (c + c̃) / 2
 
-    g_left(x, p) = (x + c₁)^8 * (x + c₂)^8
-    g_right(x, p) = (x - c₁)^8 * (x - c₂)^8
+    poly_left(x) = (x + c₁)^n * (x + c₂)^n
+    poly_right(x) = (x - c₁)^n * (x - c₂)^n
 
     if abs(x) >= c₂
         return 0
     elseif abs(x) <= c₁
         return 0
     elseif -c₂ < x < -c₁
-        prob = IntegralProblem(g_left, (-c₂, -c₁))
-
-        integral_left = solve(prob, HCubatureJL()).u
+        integral_left = quadgk(poly_left, -c₂, -c₁)[1]
         cst_left = 1 / integral_left
-        return cst_left * g_left.(x, 0)
-    elseif c₁ < x < c₂
-        prob = IntegralProblem(g_right, (c₁, c₂))
 
-        integral_right = solve(prob, HCubatureJL()).u
+        return cst_left * poly_left.(x)
+    elseif c₁ < x < c₂
+        integral_right = quadgk(poly_right, c₁, c₂)[1]
         cst_right = 1 / integral_right
-        return -cst_right * g_right.(x, 0)
+
+        return -cst_right * poly_right.(x)
     else
-        @error "Problem with the given point in χ'"
+        @error "Problem with the given point in χ_der'"
     end
 end
 
 """
-    build_Yε(x, ε)
+    Yε(x, ε, n)
 
 Build the cut-off function Yε.
 Input arguments:
 
   - x: point at which the cut-off function is evaluated
   - ε: parameter of the cut-off function
+  - n: order of the polynomial
 
 Returns the value of the cut-off function at x.
 """
-function build_Yε(x, ε)
+function Yε(x, ε, n)
 
-    g(x, p) = (x - ε)^8 * (x - 2 * ε)^8
+    poly(x) = (x - ε)^n * (x - 2 * ε)^n
 
     if x >= 2 * ε
         return 0
     elseif 0 <= x <= ε
         return 1
     elseif ε < x < 2 * ε
-        prob = IntegralProblem(g, (ε, 2 * ε))
-        pol(x) = solve(IntegralProblem(g, (ε, x)), HCubatureJL()).u
+        int_pol(_x) = quadgk(poly, ε, _x)[1]
 
-        integral = solve(prob, HCubatureJL()).u
+        integral = quadgk(poly, ε, 2 * ε)[1]
         cst = 1 / integral
-        return 1 - cst * pol.(x)
+
+        return 1 - cst * int_pol.(x)
     else
         @error "error treating x in Yε"
     end
 end
 
 """
-    build_Yε_der(x, ε)
+    Yε_1st_der(x, ε, n)
 
 Build the derivative of the cut-off function Yε.
 Input arguments:
 
   - x: point at which the derivative of the cut-off function is evaluated
   - ε: parameter of the cut-off function
+  - n: order of the polynomial
 
 Returns the value of the derivative of the cut-off function at x.
 """
-function build_Yε_der(x, ε)
+function Yε_1st_der(x, ε, n)
 
-    g(x, p) = (x - ε)^8 * (x - 2 * ε)^8
+    poly(x) = (x - ε)^n * (x - 2 * ε)^n
 
     if x >= 2 * ε
         return 0
     elseif 0 <= x <= ε
         return 0
     elseif ε < x < 2 * ε
-        prob = IntegralProblem(g, (ε, 2 * ε))
+        integral = quadgk(poly, ε, 2 * ε)[1]
 
-        integral = solve(prob, HCubatureJL()).u
         cst = 1 / integral
-        return -cst * g.(x, 0)
+        return -cst * poly.(x)
     else
-        @error "error treating x in Yε'"
+        @error "error treating x in Yε_1st_der"
     end
 end
 
 """
-    build_Yε_der_2nd(x, ε)
+    Yε_2nd_der(x, ε, n)
 
 Build the 2nd derivative of the cut-off function Yε.
 Input arguments:
 
   - x: point at which the 2nd derivative of the cut-off function is evaluated
   - ε: parameter of the cut-off function
+  - n: order of the polynomial
 
 Returns the value of the 2nd derivative of the cut-off function at x.
 """
-function build_Yε_der_2nd(x, ε)
+function Yε_2nd_der(x, ε, n)
 
-    g(x) = 8 * (x - ε)^7 * (x - 2 * ε)^8 + 8 * (x - ε)^8 * (x - 2 * ε)^7
+    poly(x) = n * (x - ε)^(n - 1) * (x - 2 * ε)^n + n * (x - ε)^n * (x - 2 * ε)^(n - 1)
 
-    g_primitive(x, p) = (x - ε)^8 * (x - 2 * ε)^8
+    poly_primitive(x) = (x - ε)^n * (x - 2 * ε)^n
 
     if x >= 2 * ε
         return 0
     elseif 0 <= x <= ε
         return 0
     elseif ε < x < 2 * ε
-        prob = IntegralProblem(g_primitive, (ε, 2 * ε))
+        integral = quadgk(poly_primitive, ε, 2 * ε)[1]
 
-        integral = solve(prob, HCubatureJL()).u
         cst = 1 / integral
-        return -cst * g.(x)
+        return -cst * poly.(x)
     else
-        @error "error treating x in Yε''"
+        @error "error treating x in Yε_2nd_der"
     end
 end

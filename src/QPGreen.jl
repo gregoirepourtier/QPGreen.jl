@@ -3,8 +3,9 @@ module QPGreen
 using LinearAlgebra
 using LazyGrids
 using FFTW
-using QuadGK
+using FastGaussQuadrature
 using Interpolations
+using StaticArrays
 
 import SpecialFunctions
 import Bessels
@@ -12,7 +13,7 @@ import Bessels
 include("expansions.jl")
 export image_expansion, eigfunc_expansion
 
-include("cut-off_function.jl")
+include("cutoff_functions.jl")
 include("utils.jl")
 include("fm.jl")
 

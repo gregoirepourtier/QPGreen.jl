@@ -1,5 +1,17 @@
 # FFT-based algorithm
 
+function Φ₁(x, ε, cst_Yε, poly_Yε::T1, poly_derivative_Yε::T2) where {T1, T2}
+    return (2 + log(x)) * Yε_1st_der(x, ε, cst_Yε, poly_Yε) / x + Yε_2nd_der(x, ε, cst_Yε, poly_derivative_Yε) * log(x)
+end
+
+# function get_cst(poly_Yε::T, ξ, w, ε, ::Val{order}) where {T, order}
+#     eval_int_cst_Yε = SVector{order}(quad_CoV.(poly_Yε, ξ[i], ε, 2 * ε) for i ∈ 1:order)
+#     integral_Yε = dot(w, eval_int_cst_Yε)
+#     cst_Yε = 1 / integral_Yε
+    
+#     return cst_Yε
+# end
+
 """
     get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k; degree_legendre=5)
 
@@ -19,7 +31,7 @@ Keyword arguments:
 
 Returns the Fourier coefficients K̂ⱼ.
 """
-function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k) where {T}
+function get_K̂ⱼ(j₁, j₂, c̃, α, k, integral_1, integral_2)
 
     αⱼ₁ = α + j₁
     βⱼ₁ = abs(αⱼ₁) <= k ? √(k^2 - αⱼ₁^2) : im * √(αⱼ₁^2 - k^2)
@@ -28,60 +40,9 @@ function get_K̂ⱼ(j₁, j₂, c̃, α, χ_der::T, k) where {T}
         @error "Unexpected Behaviour in get_K̂ⱼ"
     end
 
-    # using quadrature rule to calculate the integrals but can be replaced by 1D FFT
-    f₁_K̂ⱼ(x, p) = exp(im * βⱼ₁ * x) * χ_der(x) * exp(-im * j₂ * π / c̃ * x)
-    f₂_K̂ⱼ(x, p) = exp(im * βⱼ₁ * x) * χ_der(x) * exp(im * j₂ * π / c̃ * x)
-
-    prob1 = IntegralProblem(f₁_K̂ⱼ, (0.0, c̃))
-    prob2 = IntegralProblem(f₂_K̂ⱼ, (0.0, c̃))
-
-    integral_1 = solve(prob1, HCubatureJL()).u
-    integral_2 = solve(prob2, HCubatureJL()).u
-
     return 1 / (2 * √(π * c̃)) * (1 / (αⱼ₁^2 + (j₂ * π / c̃)^2 - k^2) +
             1 / (2 * βⱼ₁ * (j₂ * π / c̃ - βⱼ₁)) * integral_1 -
             1 / (2 * βⱼ₁ * (j₂ * π / c̃ + βⱼ₁)) * integral_2)
-end
-
-"""
-    Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
-
-Calculate the function Φ₁.
-Input arguments:
-
-  - x: given as a 2D array
-  - Yε_der: derivative of the cut-off function Yε
-  - Yε_der_2nd: second derivative of the cut-off function Yε
-  - total_pts: total number of points in the grid
-
-Returns the value of the function Φ₁.
-"""
-function Φ₁(x, Yε_der, Yε_der_2nd, total_pts)
-
-    # result = zeros(size(x))
-
-    # x_norm = √(x.^2 .+ y.^2)
-    # @. result = (2 + log(x_norm)) * Yε_der(x_norm) / x_norm + Yε_der_2nd(x_norm) * log(x_norm)
-
-    result = zeros(total_pts)
-    for i ∈ 1:total_pts
-        @views x_norm = norm(x[i, :])
-        # result[i] = x_norm
-        if x_norm ≠ 0
-            result[i] = (2 + log(x_norm)) * Yε_der(x_norm) / x_norm + Yε_der_2nd(x_norm) * log(x_norm)
-        end
-    end
-
-    # result = zeros(total_pts)
-    # for i ∈ 1:total_pts
-    #     @views x_norm = norm(x[i, :])
-    #     # result[i] = x_norm
-    #     if x_norm ≠ 0
-    #         result[i] = (2 + log(x_norm)) * Yε_der(x_norm) / x_norm + Yε_der_2nd(x_norm) * log(x_norm)
-    #     end
-    # end
-
-    result
 end
 
 """

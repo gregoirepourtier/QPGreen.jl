@@ -1,12 +1,14 @@
 # FFT-based algorithm to compute quasi-periodic Green's function for 2D Helmholtz equation
 
+polynomial_cutoff(x, c₁, c₂, order) = (x - c₁)^order * (x - c₂)^order
+
 """
     fm_method_preparation(csts; grid_size=100, ε=0.4341)
 
 Preparation step of the FFT-based algorithm.
 Input arguments:
 
-  - csts: tuple of the constants (α, c, c̃, k)
+  - csts: tuple of constants (α, c, c̃, k, order)
 
 Keyword arguments:
 
@@ -18,54 +20,73 @@ Returns the Fourier coefficients of the function Lₙ.
 function fm_method_preparation(csts; grid_size=100, ε=0.4341)
 
     α, c, c̃, k, order = csts
-    total_pts = (2 * grid_size)^2 # (2N)² points
+    c₁, c₂ = (c, (c + c̃) / 2)
+    ξ, w = gausslegendre(order)
 
     # Generate the grid
-    # xx = range(-x, x - x / N; length=2 * N)
-    # yy = range(-y, y - y / N; length=2 * N)
-    grid_X, grid_Y = gen_grid_FFT(π, c̃, grid_size)
-    N, M = size(grid_X)
+    N = 2 * grid_size
+    xx = range(-π, π - π / grid_size; length=N)
+    yy = range(-c̃, c̃ - c̃ / grid_size; length=N)
 
-    # f(x,y) = sin(x + y) 
-    # xx = yy = range(-5; stop = 5, length = 100)
-    # map(x -> f(x[1],x[2]), Iterators.product(xx, yy))
+    poly_Yε(x) = polynomial_cutoff(x, ε, 2 * ε, order)
+    poly_derivative_Yε(x) = order * (x - ε)^(order - 1) * (x - 2 * ε)^order + order * (x - ε)^order * (x - 2 * order)^(order - 1)
 
-    # set_of_pt_grid = get_grid_pts(grid_X, grid_Y, total_pts)
-
-    @assert N==M==2*grid_size "Problem dimensions"
+    eval_int_cst_Yε = quad_CoV.(poly_Yε, ξ, ε, 2 * ε)
+    integral_Yε = dot(w, eval_int_cst_Yε)
+    cst_Yε = 1 / integral_Yε
 
     #### 1. Preparation step ####
-    _evaluation_Φ₁ = map(x -> Φ₁(x[1], x[2]), Iterators.product(xx, yy))
-    # Φ₁(set_of_pt_grid, Yε_der, Yε_der_2nd, total_pts)
-    evaluation_Φ₁ = transpose(reshape(_evaluation_Φ₁, (N, M)))
-    _evaluation_Φ₂ = view(set_of_pt_grid, :, 1) .* _evaluation_Φ₁
-    evaluation_Φ₂ = transpose(reshape(_evaluation_Φ₂, (N, M)))
+    evaluation_Φ₁ = map(x -> norm(x) != 0 ? Φ₁(norm(x), ε, cst_Yε, poly_Yε, poly_derivative_Yε) : 0.0, Iterators.product(xx, yy))
 
-    Φ̂₁ⱼ = 1 / (M * N * grid_size * √(π * c̃)) .* fftshift(fft(fftshift(evaluation_Φ₁)))
-    Φ̂₂ⱼ = 1 / (M * N * grid_size * √(π * c̃)) .* fftshift(fft(fftshift(evaluation_Φ₂)))
-   
+    display(evaluation_Φ₁)
 
-    fourier_coeffs_grid = zeros(eltype(Φ̂₁ⱼ), N, M)
-    for i ∈ 1:N
-        j₁ = -grid_size + i - 1
-        for j ∈ 1:M
-            j₂ = -grid_size + j - 1
+    # evaluation_Φ₁ = zeros(N, N)
+    # @. evaluation_Φ₁ = sqrt(xx^2 + yy'^2)
+    # @. evaluation_Φ₁ = (2 + log(evaluation_Φ₁)) * Yε_1st_der(evaluation_Φ₁, ε, cst_Yε, poly_Yε) / evaluation_Φ₁ +
+    #                    Yε_2nd_der(evaluation_Φ₁, ε, cst_Yε, poly_derivative_Yε) * log(evaluation_Φ₁)
+    # evaluation_Φ₂ = xx .* evaluation_Φ₁
 
-            # a) Calculate Fourier Coefficients K̂ⱼ
-            K̂ⱼ = get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k)
+    # display(evaluation_Φ₁)
 
-            # b) Calculate Fourier Coefficients L̂ⱼ
-            F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, ε, Yε, Φ̂₁ⱼ[i, j], Φ̂₂ⱼ[i, j])
-            L̂ⱼ = K̂ⱼ - F̂₁ⱼ + im * α * F̂₂ⱼ
+    # evaluation_Φ₁ = transpose(reshape(_evaluation_Φ₁, (N, M)))
+    # evaluation_Φ₂ = transpose(reshape(_evaluation_Φ₂, (N, M)))
 
-            # c) Calculate the values of Lₙ at the grid points by 2D IFFT
-            fourier_coeffs_grid[i, j] = L̂ⱼ
-        end
-    end
+    # Φ̂₁ⱼ = (2 * sqrt(pi * c̃)) / (N^2) * transpose(fftshift(fft(fftshift(evaluation_Φ₁))))
+    # Φ̂₂ⱼ = (2 * sqrt(pi * c̃)) / (N^2) .* transpose(fftshift(fft(fftshift(evaluation_Φ₂))))
 
-    Lₙ = M * N / (2 * √(π * c̃)) .* fftshift(ifft(fftshift(fourier_coeffs_grid)))
+    # t_j_fft = range(-c̃, c̃; length=(2 * N + 1))
 
-    return Lₙ
+    # f_K(x, βⱼ) = exp(im * βⱼ * x) * χ_der(x, c₁, c₂, cst_left, cst_right, poly_left, poly_right)
+
+    # fourier_coeffs_grid = zeros(eltype(Φ̂₁ⱼ), N, N)
+    # for i ∈ 1:N
+    #     j₁ = -grid_size + i - 1
+    #     eval_f_K = f_K(t_j_fft, beta_j1(i))
+    #     eval_f_K[1:N] = 0
+
+    # # fft_eval = transpose(fftshift(fft(fftshift(eval_f_K(1:end-1)))));
+    # # fft_eval_flipped = reverse(fft_eval);
+
+    # # integral_1 = c_tilde/N * fft_eval((N/2 + 1):(N/2 + N));
+    # # integral_2 = c_tilde/N * fft_eval_flipped ((N/2):(N/2 + N - 1));s
+    # # for j ∈ 1:N
+    # #     j₂ = -grid_size + j - 1
+
+    # #     # a) Calculate Fourier Coefficients K̂ⱼ
+    # #     K̂ⱼ = get_K̂ⱼ(j₁, j₂, c̃, α, k)
+
+    # #     # b) Calculate Fourier Coefficients L̂ⱼ
+    # #     F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, ε, Yε, Φ̂₁ⱼ[j, i], Φ̂₂ⱼ[j, i])
+    # #     L̂ⱼ = K̂ⱼ - F̂₁ⱼ + im * α * F̂₂ⱼ
+
+    # #     # c) Calculate the values of Lₙ at the grid points by 2D IFFT
+    # #     fourier_coeffs_grid[j, i] = L̂ⱼ
+    # # end
+    # end
+
+    # Lₙ = M * N / (2 * √(π * c̃)) .* fftshift(ifft(fftshift(fourier_coeffs_grid)))
+
+    # return Lₙ
 end
 
 

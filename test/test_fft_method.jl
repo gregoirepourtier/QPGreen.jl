@@ -1,14 +1,26 @@
 using Test, QPGreen
 
 X, Y = (0.002π, 0.0)
-α, c, c̃, k, ε = (0.3, 0.6, 1.0, 1, 0.1)
-params = (α, c, c̃, k)
+α, c, c̃, k, ε, order = (0.3, 0.6, 1.0, 1.0, 0.1, 8)
+params = (α, c, c̃, k,  order)
 
-res_eig = eigfunc_expansion((X, Y), k, α; nb_terms=1000)
+res_eig = eigfunc_expansion((X, Y), k, α; nb_terms=10000)
 res_img = image_expansion((X, Y), k, α; nb_terms=200000)
 
+# using ProfileView
+# function profile_test(n)
+#     for i = 1:n
+#         QPGreen.fm_method_preparation(params; grid_size=1024)
+#     end
+# end
 
-preparation_result = QPGreen.fm_method_preparation(params; grid_size=32);
+# ProfileView.@profview profile_test(1)
+# ProfileView.@profview profile_test(10)
+
+preparation_result = QPGreen.fm_method_preparation(params; grid_size=5);
+
+
+
 QPGreen.fm_method_calculation((X, Y), params, preparation_result, Yε; α=α, k=k, nb_terms=32)
 
 

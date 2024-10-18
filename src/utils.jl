@@ -52,4 +52,8 @@ Input arguments:
 
 Returns the value of the integral on the interval [a, b].
 """
-quad(f::T, x, a, b) where {T} = (b - a) / 2 * f((b - a) / 2 * x + (a + b) / 2)
+function quad_CoV(f::T, x, a, b) where {T}
+    half_diff = (b - a) / 2
+    mid_point = (a + b) / 2
+    return half_diff * f(half_diff * x + mid_point)
+end

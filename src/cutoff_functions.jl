@@ -14,15 +14,15 @@ Input arguments:
 
 Returns the value of the cutoff function at x.
 """
-function χ(x, c₁, c₂, cst_left, cst_right, poly_left::T1, poly_right::T2) where {T1, T2}
-    if abs(x) >= c₂
-        return 0.0
-    elseif abs(x) <= c₁
-        return 1.0
-    elseif -c₂ < x < -c₁
-        return cst_left * poly_left(x)
-    elseif c₁ < x < c₂
-        return 1 - cst_right * poly_right(x)
+function χ(x::T, cache::IntegrationCache) where {T}
+    if abs(x) >= cache.params.b
+        return zero(T)
+    elseif abs(x) <= cache.params.a
+        return one(T)
+    elseif -cache.params.b < x < -cache.params.a
+        return cache.normalization * int_polynomial_cutoff(x, -cache.params)
+    elseif cache.params.a < x < cache.params.b
+        return one(T) - cache.normalization * int_polynomial_cutoff(x, cache.params)
     end
 end
 
@@ -40,13 +40,13 @@ Input arguments:
 
 Returns the value of the derivative of the cutoff function at x.
 """
-function χ_der(x, c₁, c₂, cst_left, cst_right, poly_left::T1, poly_right::T2) where {T1, T2}
-    if -c₂ < x < -c₁
-        return cst_left * poly_left(x)
-    elseif c₁ < x < c₂
-        return -cst_right * poly_right(x)
+function χ_der(x::T, cache::IntegrationCache) where {T}
+    if -cache.params.b < x < -cache.params.a
+        return cache.normalization * polynomial_cutoff(x, -cache.params)
+    elseif cache.params.a < x < cache.params.b
+        return -cache.normalization * polynomial_cutoff(x, cache.params)
     else
-        return 0.0
+        return zero(T)
     end
 end
 
@@ -63,13 +63,13 @@ Input arguments:
 
 Returns the value of the cutoff function at x.
 """
-function Yε(x, ε, cst, poly::T) where {T}
-    if x >= 2 * ε
-        return 0.0
-    elseif 0 <= x <= ε
-        return 1.0
+function Yε(x::T, cache::IntegrationCache) where {T}
+    if x >= cache.params.b
+        return zero(T)
+    elseif zero(T) <= x <= cache.params.a
+        return one(T)
     else
-        return 1.0 - cst * poly(x)
+        return one(T) - cache.normalization * int_polynomial_cutoff(x, cache.params)
     end
 end
 
@@ -86,7 +86,8 @@ Input arguments:
 
 Returns the value of the derivative of the cutoff function at x.
 """
-Yε_1st_der(x, ε, cst, poly::T) where {T} = ε < x < 2 * ε ? -cst * poly(x) : 0.0
+Yε_1st_der(x::T, cache::IntegrationCache) where {T} = cache.params.a < x < cache.params.b ?
+                                                      -cache.normalization * polynomial_cutoff(x, cache.params) : zero(T)
 
 """
     Yε_2nd_der(x, ε, n, cache)
@@ -101,4 +102,6 @@ Input arguments:
 
 Returns the value of the 2nd derivative of the cutoff function at x.
 """
-Yε_2nd_der(x, ε, cst, poly::T) where {T} = ε < x < 2 * ε ? -cst * poly(x) : 0.0
+Yε_2nd_der(x::T, cache::IntegrationCache) where {T} = cache.params.a < x < cache.params.b ?
+                                                      -cache.normalization * polynomial_cutoff_derivative(x, cache.params) :
+                                                      zero(T)

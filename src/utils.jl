@@ -37,23 +37,3 @@ function get_grid_pts(grid_X, grid_Y, total_pts)
 
     set_of_pt_grid
 end
-
-"""
-    quad(f::T, x, a, b)
-
-Change of variable to compute the integral of a function with a Gauss Quadrature Rule.
-
-Input arguments:
-
-  - f: function to integrate
-  - x: quadrature points
-  - a: lower bound of the interval
-  - b: upper bound of the interval
-
-Returns the value of the integral on the interval [a, b].
-"""
-function quad_CoV(f::T, x, a, b) where {T}
-    half_diff = (b - a) / 2
-    mid_point = (a + b) / 2
-    return half_diff * f(half_diff * x + mid_point)
-end

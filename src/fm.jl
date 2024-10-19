@@ -1,16 +1,10 @@
 # FFT-based algorithm
 
-function Φ₁(x, ε, cst_Yε, poly_Yε::T1, poly_derivative_Yε::T2) where {T1, T2}
-    return (2 + log(x)) * Yε_1st_der(x, ε, cst_Yε, poly_Yε) / x + Yε_2nd_der(x, ε, cst_Yε, poly_derivative_Yε) * log(x)
+function Φ₁(x, cache::IntegrationCache)
+    return (2 + log(x)) * Yε_1st_der(x, cache) / x + Yε_2nd_der(x, cache) * log(x)
 end
 
-# function get_cst(poly_Yε::T, ξ, w, ε, ::Val{order}) where {T, order}
-#     eval_int_cst_Yε = SVector{order}(quad_CoV.(poly_Yε, ξ[i], ε, 2 * ε) for i ∈ 1:order)
-#     integral_Yε = dot(w, eval_int_cst_Yε)
-#     cst_Yε = 1 / integral_Yε
-    
-#     return cst_Yε
-# end
+f₀_F̂ⱼ(x, cache::IntegrationCache) = x * log(x) * Yε(x, cache)
 
 """
     get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k; degree_legendre=5)
@@ -31,18 +25,26 @@ Keyword arguments:
 
 Returns the Fourier coefficients K̂ⱼ.
 """
-function get_K̂ⱼ(j₁, j₂, c̃, α, k, integral_1, integral_2)
+function get_K̂ⱼ!(K̂ⱼ, eval_int_fft_1D, t_j_fft, j_idx, c̃, α, k, N, i, cache::IntegrationCache)
 
-    αⱼ₁ = α + j₁
-    βⱼ₁ = abs(αⱼ₁) <= k ? √(k^2 - αⱼ₁^2) : im * √(αⱼ₁^2 - k^2)
+    αₙ = α + j_idx[i]
+    βₙ = abs(αₙ) <= k ? √(k^2 - αₙ^2) : im * √(αₙ^2 - k^2)
 
-    if βⱼ₁ == (j₂ * π / c̃) || βⱼ₁ == (-j₂ * π / c̃)
-        @error "Unexpected Behaviour in get_K̂ⱼ"
-    end
+    # if βⱼ₁ == (j₂ * π / c̃) || βⱼ₁ == (-j₂ * π / c̃)
+    #     @error "Unexpected Behaviour in get_K̂ⱼ"
+    # end
 
-    return 1 / (2 * √(π * c̃)) * (1 / (αⱼ₁^2 + (j₂ * π / c̃)^2 - k^2) +
-            1 / (2 * βⱼ₁ * (j₂ * π / c̃ - βⱼ₁)) * integral_1 -
-            1 / (2 * βⱼ₁ * (j₂ * π / c̃ + βⱼ₁)) * integral_2)
+    eval_int_fft_1D .= integrand_fourier_fft_1D.(t_j_fft, βₙ, Ref(cache))
+    eval_int_fft_1D[1:N] .= 0
+    fft_eval = transpose(fftshift(fft(fftshift(eval_int_fft_1D[1:(end - 1)])))) # add Plan FFT here
+    fft_eval_flipped = reverse(fft_eval)
+
+    integral_1 = c̃ / N * fft_eval[(N ÷ 2 + 1):(N ÷ 2 + N)]
+    integral_2 = c̃ / N * fft_eval_flipped[(N ÷ 2):(N ÷ 2 + N - 1)]
+
+    @. K̂ⱼ = 1 / (2 * √(π * c̃)) * (1 / (αₙ^2 + (j_idx * π / c̃)^2 - k^2) +
+              1 / (2 * βₙ * (j_idx * π / c̃ - βₙ)) * integral_1 -
+              1 / (2 * βₙ * (j_idx * π / c̃ + βₙ)) * integral_2)
 end
 
 """
@@ -65,18 +67,14 @@ Keyword arguments:
 
 Returns the Fourier coefficients F̂ⱼ.
 """
-function get_F̂ⱼ(j₁, j₂, c̃, ε, Yε::T, Φ̂₁ⱼ, Φ̂₂ⱼ) where {T}
+function get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, cache::IntegrationCache)
 
     if (j₁^2 + j₂^2) ≠ 0
         cst = j₁^2 + j₂^2 * π^2 / c̃^2
         F̂₁ⱼ = 1 / cst * (1 / (2 * √(π * c̃)) + 1 / (2 * π) * Φ̂₁ⱼ)
         F̂₂ⱼ = 1 / cst * (-2 * im * j₁ * F̂₁ⱼ + 1 / (2 * π) * Φ̂₂ⱼ)
     else # special case |j| = 0
-
-        f₀_F̂ⱼ(x, p) = x * log(x) * Yε(x)
-
-        prob = IntegralProblem(f₀_F̂ⱼ, (0.0, 2 * ε))
-        integral = solve(prob, HCubatureJL()).u
+        integral = quadgk(x -> f₀_F̂ⱼ(x, cache), 0.0, cache.params.b)[1]
 
         F̂₁ⱼ = -1 / (2 * √(π * c̃)) * integral
         F̂₂ⱼ = 0
@@ -96,10 +94,11 @@ Input arguments:
 
 Returns the value of the function f₁.
 """
-function f₁(x, Yε::T) where {T}
+function f₁(x, cache::IntegrationCache)
+
     x_norm = norm(x)
 
-    return -1 / (2 * π) * log(x_norm) * Yε(x_norm)
+    return -1 / (2 * π) * log(x_norm) * Yε(x_norm, cache)
 end
 
 """
@@ -113,10 +112,10 @@ Input arguments:
 
 Returns the value of the function f₂.
 """
-function f₂(x, Yε::T) where {T}
+function f₂(x, cache::IntegrationCache)
     x_norm = norm(x)
 
-    return -1 / (2 * π) * x[1] * log(x_norm) * Yε(x_norm)
+    return -1 / (2 * π) * x[1] * log(x_norm) * Yε(x_norm, cache)
 end
 
 """

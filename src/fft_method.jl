@@ -1,6 +1,34 @@
 # FFT-based algorithm to compute quasi-periodic Green's function for 2D Helmholtz equation
 
-polynomial_cutoff(x, c₁, c₂, order) = (x - c₁)^order * (x - c₂)^order
+abstract type AbstractIntegrationCache end
+
+struct IntegrationParameters{T1 <: Real, T2 <: Signed}
+    a::T1
+    b::T1
+    order::T2
+end
+
+# invertBounds(x::IntegrationParameters) = IntegrationParameters(-x.b, -x.a, x.order)
+Base.:-(x::IntegrationParameters) = IntegrationParameters(-x.b, -x.a, x.order)
+
+polynomial_cutoff(x, _int::IntegrationParameters) = (x - _int.a)^_int.order * (x - _int.b)^_int.order
+function polynomial_cutoff_derivative(x, _int::IntegrationParameters)
+    _int.order * (x - _int.a)^(_int.order - 1) * (x - _int.b)^_int.order +
+    _int.order * (x - _int.a)^_int.order * (x - _int.b)^(_int.order - 1)
+end
+
+int_polynomial_cutoff(x, _int::IntegrationParameters) = quadgk(x -> polynomial_cutoff(x, _int), _int.a, x)[1]
+
+struct IntegrationCache{T1 <: Real, T2 <: Signed} <: AbstractIntegrationCache
+    normalization::T1
+    params::IntegrationParameters{T1, T2}
+end
+
+function IntegrationCache(poly::IntegrationParameters)
+    IntegrationCache(1 / quadgk(x -> polynomial_cutoff(x, poly), poly.a, poly.b)[1], poly)
+end
+
+integrand_fourier_fft_1D(x, βⱼ, cache) = exp(im * βⱼ * x) * χ_der(x, cache)
 
 """
     fm_method_preparation(csts; grid_size=100, ε=0.4341)
@@ -21,72 +49,52 @@ function fm_method_preparation(csts; grid_size=100, ε=0.4341)
 
     α, c, c̃, k, order = csts
     c₁, c₂ = (c, (c + c̃) / 2)
-    ξ, w = gausslegendre(order)
+
+    # Parameters for the cutoff functions
+    params_χ = IntegrationParameters(c₁, c₂, order)
+    params_Yε = IntegrationParameters(ε, 2 * ε, order)
+    # Generate caches for the cutoff functions
+    cache_χ = IntegrationCache(params_χ)
+    cache_Yε = IntegrationCache(params_Yε)
 
     # Generate the grid
     N = 2 * grid_size
     xx = range(-π, π - π / grid_size; length=N)
     yy = range(-c̃, c̃ - c̃ / grid_size; length=N)
 
-    poly_Yε(x) = polynomial_cutoff(x, ε, 2 * ε, order)
-    poly_derivative_Yε(x) = order * (x - ε)^(order - 1) * (x - 2 * ε)^order + order * (x - ε)^order * (x - 2 * order)^(order - 1)
 
-    eval_int_cst_Yε = quad_CoV.(poly_Yε, ξ, ε, 2 * ε)
-    integral_Yε = dot(w, eval_int_cst_Yε)
-    cst_Yε = 1 / integral_Yε
+    # index of grid points -grid_size ≤ j ≤ grid_size-1
+    j_idx = (-grid_size):(grid_size - 1)
 
-    #### 1. Preparation step ####
-    evaluation_Φ₁ = map(x -> norm(x) != 0 ? Φ₁(norm(x), ε, cst_Yε, poly_Yε, poly_derivative_Yε) : 0.0, Iterators.product(xx, yy))
+    # Points to evaluate the fourier integral by 1D FFT
+    t_j_fft = range(-c̃, c̃; length=(2 * N) + 1)
 
-    display(evaluation_Φ₁)
+    # Allocate memory for the Fourier coefficients K̂ⱼ, F̂ⱼ, L̂ⱼ
+    eval_int_fft_1D = Vector{Complex{typeof(α)}}(undef, 2 * N + 1)
+    K̂ⱼ = Matrix{Complex{typeof(α)}}(undef, N, N)
+    L̂ⱼ = Matrix{Complex{typeof(α)}}(undef, N, N)
 
-    # evaluation_Φ₁ = zeros(N, N)
-    # @. evaluation_Φ₁ = sqrt(xx^2 + yy'^2)
-    # @. evaluation_Φ₁ = (2 + log(evaluation_Φ₁)) * Yε_1st_der(evaluation_Φ₁, ε, cst_Yε, poly_Yε) / evaluation_Φ₁ +
-    #                    Yε_2nd_der(evaluation_Φ₁, ε, cst_Yε, poly_derivative_Yε) * log(evaluation_Φ₁)
-    # evaluation_Φ₂ = xx .* evaluation_Φ₁
+    evaluation_Φ₁ = map(x -> norm(x) != 0 ? Φ₁(norm(x), cache_Yε) : 0.0, Iterators.product(xx, yy))
+    # evaluation_Φ₁ = map(x -> Φ₁(norm(x), cache_Yε), Iterators.product(xx, yy))
+    evaluation_Φ₂ = xx .* evaluation_Φ₁
 
-    # display(evaluation_Φ₁)
+    Φ̂₁ⱼ = (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Φ₁)))
+    Φ̂₂ⱼ = (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Φ₂)))
 
-    # evaluation_Φ₁ = transpose(reshape(_evaluation_Φ₁, (N, M)))
-    # evaluation_Φ₂ = transpose(reshape(_evaluation_Φ₂, (N, M)))
+    for i ∈ 1:N
+        # a) Calculate Fourier Coefficients K̂ⱼ (using FFT to compute Fourier integrals)
+        @views get_K̂ⱼ!(K̂ⱼ[i, :], eval_int_fft_1D, t_j_fft, j_idx, c̃, α, k, N, i, cache_χ)
 
-    # Φ̂₁ⱼ = (2 * sqrt(pi * c̃)) / (N^2) * transpose(fftshift(fft(fftshift(evaluation_Φ₁))))
-    # Φ̂₂ⱼ = (2 * sqrt(pi * c̃)) / (N^2) .* transpose(fftshift(fft(fftshift(evaluation_Φ₂))))
+        for j ∈ 1:N
+            # b) Calculate Fourier Coefficients L̂ⱼ
+            F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j_idx[i], j_idx[j], c̃, Φ̂₁ⱼ[i, j], Φ̂₂ⱼ[i, j], cache_Yε)
+            L̂ⱼ[j, i] = K̂ⱼ[i, j] - F̂₁ⱼ + im * α * F̂₂ⱼ
+        end
+    end
 
-    # t_j_fft = range(-c̃, c̃; length=(2 * N + 1))
+    Lₙ = N^2 / (2 * √(π * c̃)) .* fftshift(ifft(fftshift(L̂ⱼ)))
 
-    # f_K(x, βⱼ) = exp(im * βⱼ * x) * χ_der(x, c₁, c₂, cst_left, cst_right, poly_left, poly_right)
-
-    # fourier_coeffs_grid = zeros(eltype(Φ̂₁ⱼ), N, N)
-    # for i ∈ 1:N
-    #     j₁ = -grid_size + i - 1
-    #     eval_f_K = f_K(t_j_fft, beta_j1(i))
-    #     eval_f_K[1:N] = 0
-
-    # # fft_eval = transpose(fftshift(fft(fftshift(eval_f_K(1:end-1)))));
-    # # fft_eval_flipped = reverse(fft_eval);
-
-    # # integral_1 = c_tilde/N * fft_eval((N/2 + 1):(N/2 + N));
-    # # integral_2 = c_tilde/N * fft_eval_flipped ((N/2):(N/2 + N - 1));s
-    # # for j ∈ 1:N
-    # #     j₂ = -grid_size + j - 1
-
-    # #     # a) Calculate Fourier Coefficients K̂ⱼ
-    # #     K̂ⱼ = get_K̂ⱼ(j₁, j₂, c̃, α, k)
-
-    # #     # b) Calculate Fourier Coefficients L̂ⱼ
-    # #     F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, ε, Yε, Φ̂₁ⱼ[j, i], Φ̂₂ⱼ[j, i])
-    # #     L̂ⱼ = K̂ⱼ - F̂₁ⱼ + im * α * F̂₂ⱼ
-
-    # #     # c) Calculate the values of Lₙ at the grid points by 2D IFFT
-    # #     fourier_coeffs_grid[j, i] = L̂ⱼ
-    # # end
-    # end
-
-    # Lₙ = M * N / (2 * √(π * c̃)) .* fftshift(ifft(fftshift(fourier_coeffs_grid)))
-
-    # return Lₙ
+    return Lₙ
 end
 
 
@@ -107,17 +115,20 @@ Keyword arguments:
 
 Returns the approximate value of the Green's function G(x).
 """
-function fm_method_calculation(x, csts, Lₙ, Yε::T; α=0.3, k=10.0, nb_terms=100) where {T}
+function fm_method_calculation(x, csts, Lₙ; nb_terms=100, ε=0.4341, order=8)
 
-    α, c, c̃, k = csts
+    α, c, c̃, _ = csts
     N, M = size(Lₙ)
+
+    params_Yε = IntegrationParameters(ε, 2 * ε, order)
+    cache_Yε = IntegrationCache(params_Yε)
 
     @assert N==M "Problem dimensions"
 
     # 2. Calculation
     if abs(x[2]) > c
         @info "The point is outside the domain D_c"
-        return green_function_eigfct_exp(x, k, α; nb_terms=nb_terms)
+        return eigfunc_expansion(x, k, α; nb_terms=nb_terms)
     else
         @info "The point is inside the domain D_c"
         t = get_t(x[1])
@@ -125,11 +136,11 @@ function fm_method_calculation(x, csts, Lₙ, Yε::T; α=0.3, k=10.0, nb_terms=1
         # Bicubic Interpolation to get Lₙ(t, x₂)
         xs = range(-π, π - π / (N / 2); length=N)
         ys = range(-c̃, c̃ - c̃ / (N / 2); length=N)
-        interp_cubic = cubic_spline_interpolation((xs, ys), Lₙ)
+        interp_cubic = cubic_spline_interpolation((xs, ys), transpose(Lₙ)) # this can be move to the preparation step
         Lₙ_t_x₂ = interp_cubic(t, x[2])
 
         # Get K(t, x₂)
-        K_t_x₂ = Lₙ_t_x₂ + f₁((t, x[2]), Yε) - im * α * f₂((t, x[2]), Yε)
+        K_t_x₂ = Lₙ_t_x₂ + f₁((t, x[2]), cache_Yε) - im * α * f₂((t, x[2]), cache_Yε)
 
         # Calculate the approximate value of G(x)
         G_x = exp(im * α * x[1]) * K_t_x₂

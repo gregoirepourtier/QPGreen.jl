@@ -39,9 +39,9 @@ Input arguments:
 
 Returns the Fourier coefficients of the function Lₙ.
 """
-function fm_method_preparation(csts, grid_size::Integer)
+function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
 
-    α, k, c, c̃, ε, order = csts
+    α, k, c, c̃, ε, order = (csts.α, csts.k, csts.c, csts.c̃, csts.ε, csts.order)
     c₁, c₂ = (c, (c + c̃) / 2)
 
     # Parameters for the cutoff functions
@@ -128,9 +128,9 @@ Keyword arguments:
 
 Returns the approximate value of the Green's function G(x).
 """
-function fm_method_calculation(x, csts, Lₙ, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=100) where {T}
+function fm_method_calculation(x, csts::NamedTuple, Lₙ, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=100) where {T}
 
-    α, k, c, c̃, ε, order = csts
+    α, k, c = (csts.α, csts.k, csts.c)
     N, M = size(Lₙ)
 
     @assert N==M "Problem dimensions"

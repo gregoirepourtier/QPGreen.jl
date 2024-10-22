@@ -1,16 +1,13 @@
 # Build the cutoff functions χ and Yε and their derivatives from paper [1].
 
 """
-    χ(x, c̃, c, n, cache)
+    χ(x, cache)
 
 Build the cutoff function χ.
 Input arguments:
 
   - x: point at which the cutoff function is evaluated
-  - c̃: parameter of the cutoff function
-  - c: parameter of the cutoff function
-  - n: order of the polynomial
-  - cache: quadrature points and weights from FastGaussQuadrature
+  - cache: see [`IntegrationCache`](@ref)
 
 Returns the value of the cutoff function at x.
 """
@@ -27,16 +24,13 @@ function χ(x::T, cache::IntegrationCache) where {T}
 end
 
 """
-    χ_der(x, c̃, c, n, cache)
+    χ_der(x, cache)
 
 Build the derivative of the cutoff function χ.
 Input arguments:
 
   - x: point at which the derivative of the cutoff function is evaluated
-  - c̃: parameter of the cutoff function
-  - c: parameter of the cutoff function
-  - n: order of the polynomial
-  - cache: quadrature points and weights from FastGaussQuadrature
+  - cache: see [`IntegrationCache`](@ref)
 
 Returns the value of the derivative of the cutoff function at x.
 """
@@ -51,15 +45,13 @@ function χ_der(x::T, cache::IntegrationCache) where {T}
 end
 
 """
-    Yε(x, ε, n, cache)
+    Yε(x, cache)
 
 Build the cutoff function Yε.
 Input arguments:
 
   - x: point at which the cutoff function is evaluated
-  - ε: parameter of the cutoff function
-  - n: order of the polynomial
-  - cache: quadrature points and weights from FastGaussQuadrature
+  - cache: see [`IntegrationCache`](@ref)
 
 Returns the value of the cutoff function at x.
 """
@@ -74,15 +66,13 @@ function Yε(x::T, cache::IntegrationCache) where {T}
 end
 
 """
-    Yε_1st_der(x, ε, n, cache)
+    Yε_1st_der(x, cache)
 
 Build the derivative of the cutoff function Yε.
 Input arguments:
 
   - x: point at which the derivative of the cutoff function is evaluated
-  - ε: parameter of the cutoff function
-  - n: order of the polynomial
-  - cache: quadrature points and weights from FastGaussQuadrature
+  - cache: see [`IntegrationCache`](@ref)
 
 Returns the value of the derivative of the cutoff function at x.
 """
@@ -90,15 +80,13 @@ Yε_1st_der(x::T, cache::IntegrationCache) where {T} = cache.params.a < x < cach
                                                       -cache.normalization * polynomial_cutoff(x, cache.params) : zero(T)
 
 """
-    Yε_2nd_der(x, ε, n, cache)
+    Yε_2nd_der(x, cache)
 
 Build the 2nd derivative of the cutoff function Yε.
 Input arguments:
 
   - x: point at which the 2nd derivative of the cutoff function is evaluated
-  - ε: parameter of the cutoff function
-  - n: order of the polynomial
-  - cache: quadrature points and weights from FastGaussQuadrature
+  - cache: see [`IntegrationCache`](@ref)
 
 Returns the value of the 2nd derivative of the cutoff function at x.
 """

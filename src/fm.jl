@@ -7,40 +7,41 @@ end
 f₀_F̂ⱼ(x, cache::IntegrationCache) = x * log(x) * Yε(x, cache)
 
 """
-    get_K̂ⱼ(j₁, j₂, c̃, α, χ_der, k; degree_legendre=5)
+    get_K̂ⱼ!((K̂ⱼ, eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, c̃, α, k, N, i, cache)
 
-Calculate the Fourier coefficients K̂ⱼ of the function Lₙ.
+Mutation function that computes the Fourier coefficients K̂ⱼ.
 Input arguments:
 
-  - j₁: first index
-  - j₂: second index
-  - c̃: parameter of the basis function
-  - α: parameter of the basis function
-  - χ_der: derivative of the cut-off function χ
-  - k: parameter of the basis function
-
-Keyword arguments:
-
-      - degree_legendre: degree of the Legendre polynomial
+  - K̂ⱼ: matrix to store the Fourier coefficients
+  - eval_int_fft_1D: vector to store the evaluation of the 1D Fourier integral by FFT
+  - fft_eval_flipped: vector to store the flipped eval_int_fft_1D
+  - t_j_fft: grid points to evaluate the Fourier integral by 1D FFT
+  - j_idx: index of the grid points
+  - c̃: parameter of the algorithm
+  - α: quasi-periodicity parameter
+  - k: wavenumber
+  - N: size of the grid
+  - i: index of the grid points
+  - cache: cache for the cut-off function Yε
 
 Returns the Fourier coefficients K̂ⱼ.
 """
-function get_K̂ⱼ!(K̂ⱼ, eval_int_fft_1D, t_j_fft, j_idx, c̃, α, k, N, i, cache::IntegrationCache)
+function get_K̂ⱼ!(K̂ⱼ, eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, c̃, α::T, k, N, i, cache::IntegrationCache) where {T}
 
     αₙ = α + j_idx[i]
-    βₙ = abs(αₙ) <= k ? √(k^2 - αₙ^2) : im * √(αₙ^2 - k^2)
-
-    # if βⱼ₁ == (j₂ * π / c̃) || βⱼ₁ == (-j₂ * π / c̃)
-    #     @error "Unexpected Behaviour in get_K̂ⱼ"
-    # end
+    βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
 
     eval_int_fft_1D .= integrand_fourier_fft_1D.(t_j_fft, βₙ, Ref(cache))
-    eval_int_fft_1D[1:N] .= 0
-    fft_eval = transpose(fftshift(fft(fftshift(eval_int_fft_1D[1:(end - 1)])))) # add Plan FFT here
-    fft_eval_flipped = reverse(fft_eval)
+    eval_int_fft_1D[1:N] .= zero(Complex{T})
+    @views fft_eval = transpose(fftshift(fft(fftshift(eval_int_fft_1D[1:(end - 1)])))) # add Plan FFT here
+    fft_eval_flipped .= fft_eval
+    reverse!(fft_eval_flipped)
 
-    integral_1 = c̃ / N * fft_eval[(N ÷ 2 + 1):(N ÷ 2 + N)]
-    integral_2 = c̃ / N * fft_eval_flipped[(N ÷ 2):(N ÷ 2 + N - 1)]
+    @views integral_1 = fft_eval[(N ÷ 2 + 1):(N ÷ 2 + N)]
+    integral_1 .*= c̃ / N
+
+    @views integral_2 = fft_eval_flipped[(N ÷ 2):(N ÷ 2 + N - 1)]
+    integral_2 .*= c̃ / N
 
     @. K̂ⱼ = 1 / (2 * √(π * c̃)) * (1 / (αₙ^2 + (j_idx * π / c̃)^2 - k^2) +
               1 / (2 * βₙ * (j_idx * π / c̃ - βₙ)) * integral_1 -
@@ -48,27 +49,22 @@ function get_K̂ⱼ!(K̂ⱼ, eval_int_fft_1D, t_j_fft, j_idx, c̃, α, k, N, i, 
 end
 
 """
-    get_F̂ⱼ(j₁, j₂, c̃, ε, Yε, Φ̂₁ⱼ, Φ̂₂ⱼ; degree_legendre=5)
+    get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, cache, type_α)
 
-Calculate the Fourier coefficients F̂ⱼ of the function Lₙ.
+Calculate the Fourier coefficients F̂ⱼ.
 Input arguments:
 
   - j₁: first index
   - j₂: second index
   - c̃: parameter of the basis function
-  - ε: parameter of the function Yε
-  - Yε: cut-off function Yε
   - Φ̂₁ⱼ: Fourier coefficients of the function Φ₁
   - Φ̂₂ⱼ: Fourier coefficients of the function Φ₂
-
-Keyword arguments:
-
-      - degree_legendre: degree of the Legendre polynomial
+  - cache: cache for the cut-off function Yε
+  - type_α: type of the parameter α
 
 Returns the Fourier coefficients F̂ⱼ.
 """
-function get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, cache::IntegrationCache)
-
+function get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, cache::IntegrationCache, ::Type{type_α}) where {type_α}
     if (j₁^2 + j₂^2) ≠ 0
         cst = j₁^2 + j₂^2 * π^2 / c̃^2
         F̂₁ⱼ = 1 / cst * (1 / (2 * √(π * c̃)) + 1 / (2 * π) * Φ̂₁ⱼ)
@@ -76,10 +72,9 @@ function get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, cache::IntegrationC
     else # special case |j| = 0
         integral = quadgk(x -> f₀_F̂ⱼ(x, cache), 0.0, cache.params.b)[1]
 
-        F̂₁ⱼ = -1 / (2 * √(π * c̃)) * integral
-        F̂₂ⱼ = 0
+        F̂₁ⱼ = Complex{type_α}(-1 / (2 * √(π * c̃)) * integral)::Complex{type_α}
+        F̂₂ⱼ = zero(Complex{type_α})
     end
-
     return F̂₁ⱼ, F̂₂ⱼ
 end
 

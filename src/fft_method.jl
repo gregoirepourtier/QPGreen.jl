@@ -2,9 +2,27 @@
 
 abstract type AbstractIntegrationCache end
 
+"""
+$(TYPEDEF)
+
+Structure storing the parameters of integration for the cutoff functions.
+
+$(TYPEDFIELDS)
+"""
 struct IntegrationParameters{T1 <: Real, T2 <: Signed}
+    """
+    Lower bound
+    """
     a::T1
+
+    """
+    Upper bound
+    """
     b::T1
+
+    """
+    Order of the cutoff function
+    """
     order::T2
 end
 
@@ -17,8 +35,22 @@ function polynomial_cutoff_derivative(x, _int::IntegrationParameters)
 end
 int_polynomial_cutoff(x, _int::IntegrationParameters) = quadgk(x_ -> polynomial_cutoff(x_, _int), _int.a, x)[1]
 
+"""
+$(TYPEDEF)
+
+Structure storing the normalization factor and the parameters of integration for the cutoff functions.
+
+$(TYPEDFIELDS)
+"""
 struct IntegrationCache{T1 <: Real, T2 <: Signed} <: AbstractIntegrationCache
+    """
+    Normalization factor
+    """
     normalization::T1
+
+    """
+    Parameters of integration
+    """
     params::IntegrationParameters{T1, T2}
 end
 

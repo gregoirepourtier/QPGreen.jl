@@ -5,6 +5,8 @@ using FFTW
 using QuadGK
 using Interpolations
 
+using DocStringExtensions
+
 import SpecialFunctions
 import Bessels
 

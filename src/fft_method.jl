@@ -99,6 +99,9 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
     type_α = typeof(α)
 
     eval_int_fft_1D = Vector{Complex{type_α}}(undef, 2 * N + 1)
+    shift_sample_eval_int = Vector{Complex{type_α}}(undef, 2 * N)
+    fft_eval = Vector{Complex{type_α}}(undef, 2 * N)
+    shift_fft_1d = Vector{Complex{type_α}}(undef, 2 * N)
     fft_eval_flipped = transpose(Vector{Complex{type_α}}(undef, 2 * N))
 
     K̂ⱼ = Matrix{Complex{type_α}}(undef, N, N)
@@ -125,27 +128,29 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
 
     shift_sample_Φ₂ = fftshift(evaluation_Φ₂)
     fft_Φ₂_eval = rfft(shift_sample_Φ₂)
-    rfftshift_normalization_conj!(Φ̂₂ⱼ, fft_Φ₂_eval, N, c̃)
+    rfftshift_normalization!(Φ̂₂ⱼ, fft_Φ₂_eval, N, c̃)
+
+    p = plan_fft!(shift_sample_eval_int; flags=FFTW.ESTIMATE, timelimit=Inf)
 
     for i ∈ 1:N
         # a) Calculate Fourier Coefficients K̂ⱼ (using FFT to compute Fourier integrals)
-        @views get_K̂ⱼ!(K̂ⱼ[i, :], eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, c̃, α, k, N, i, cache_χ)
+        @views get_K̂ⱼ!(K̂ⱼ[i, :], eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, c̃, α, k, N, i, cache_χ, p,
+                        shift_sample_eval_int, fft_eval, shift_fft_1d)
         j₁ = j_idx[i]
 
+        # b) Calculate Fourier Coefficients L̂ⱼ
         if i > N ÷ 2 + 1
             idx_fft_row = N - i + 2
             for j ∈ 1:N
                 j₂ = j_idx[j]
-                # b) Calculate Fourier Coefficients L̂ⱼ
-                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], conj(Φ̂₂ⱼ[idx_fft_row, j]), cache_Yε, type_α)
+                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], Φ̂₂ⱼ[idx_fft_row, j], cache_Yε, type_α)
                 L̂ⱼ[j, i] = K̂ⱼ[i, j] - F̂₁ⱼ + im * α * F̂₂ⱼ
             end
         else
             idx_fft_row = i
             for j ∈ 1:N
                 j₂ = j_idx[j]
-                # b) Calculate Fourier Coefficients L̂ⱼ
-                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], Φ̂₂ⱼ[idx_fft_row, j], cache_Yε, type_α)
+                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], conj(Φ̂₂ⱼ[idx_fft_row, j]), cache_Yε, type_α)
                 L̂ⱼ[j, i] = K̂ⱼ[i, j] - F̂₁ⱼ + im * α * F̂₂ⱼ
             end
         end

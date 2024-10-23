@@ -26,18 +26,22 @@ Input arguments:
 
 Returns the Fourier coefficients K̂ⱼ.
 """
-function get_K̂ⱼ!(K̂ⱼ, eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, c̃, α::T, k, N, i, cache::IntegrationCache) where {T}
+function get_K̂ⱼ!(K̂ⱼ, eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, c̃, α::T, k, N, i, cache::IntegrationCache, p,
+                  shift_sample_eval_int, fft_eval, shift_fft_1d) where {T}
 
     αₙ = α + j_idx[i]
     βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
 
     eval_int_fft_1D .= integrand_fourier_fft_1D.(t_j_fft, βₙ, Ref(cache))
     eval_int_fft_1D[1:N] .= zero(Complex{T})
-    @views fft_eval = transpose(fftshift(fft(fftshift(eval_int_fft_1D[1:(end - 1)])))) # add Plan FFT here
-    fft_eval_flipped .= fft_eval
+    @views fftshift!(shift_sample_eval_int, eval_int_fft_1D[1:(end - 1)])
+    @views fft_eval .= p * shift_sample_eval_int
+    fftshift!(shift_fft_1d, fft_eval)
+    shift_fft_1d = transpose(shift_fft_1d)
+    fft_eval_flipped .= shift_fft_1d
     reverse!(fft_eval_flipped)
 
-    @views integral_1 = fft_eval[(N ÷ 2 + 1):(N ÷ 2 + N)]
+    @views integral_1 = shift_fft_1d[(N ÷ 2 + 1):(N ÷ 2 + N)]
     integral_1 .*= c̃ / N
 
     @views integral_2 = fft_eval_flipped[(N ÷ 2):(N ÷ 2 + N - 1)]
@@ -139,9 +143,4 @@ function rfftshift_normalization!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
     circshift!(Φ̂₁ⱼ, fft_Φ₁_eval, (0, N ÷ 2))
     @views reverse!(Φ̂₁ⱼ, dims=1)
     Φ̂₁ⱼ .*= (2 * √(π * c̃)) / (N^2)
-end
-
-function rfftshift_normalization_conj!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
-    rfftshift_normalization!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
-    Φ̂₁ⱼ .= conj.(Φ̂₁ⱼ)
 end

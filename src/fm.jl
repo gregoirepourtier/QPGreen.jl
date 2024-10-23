@@ -35,7 +35,7 @@ function get_K̂ⱼ!(K̂ⱼ, eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, 
     eval_int_fft_1D .= integrand_fourier_fft_1D.(t_j_fft, βₙ, Ref(cache))
     eval_int_fft_1D[1:N] .= zero(Complex{T})
     @views fftshift!(shift_sample_eval_int, eval_int_fft_1D[1:(end - 1)])
-    @views fft_eval .= p * shift_sample_eval_int
+    fft_eval .= p * shift_sample_eval_int
     fftshift!(shift_fft_1d, fft_eval)
     shift_fft_1d = transpose(shift_fft_1d)
     fft_eval_flipped .= shift_fft_1d

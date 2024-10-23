@@ -134,3 +134,14 @@ function get_t(x)
 
     t
 end
+
+function rfftshift_normalization!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
+    circshift!(Φ̂₁ⱼ, fft_Φ₁_eval, (0, N ÷ 2))
+    @views reverse!(Φ̂₁ⱼ, dims=1)
+    Φ̂₁ⱼ .*= (2 * √(π * c̃)) / (N^2)
+end
+
+function rfftshift_normalization_conj!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
+    rfftshift_normalization!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
+    Φ̂₁ⱼ .= conj.(Φ̂₁ⱼ)
+end

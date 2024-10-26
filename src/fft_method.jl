@@ -76,6 +76,8 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
     α, k, c, c̃, ε, order = (csts.α, csts.k, csts.c, csts.c̃, csts.ε, csts.order)
     c₁, c₂ = (c, (c + c̃) / 2)
 
+    type_α = typeof(α)
+
     # Parameters for the cutoff functions
     params_χ = IntegrationParameters(c₁, c₂, order)
     params_Yε = IntegrationParameters(ε, 2 * ε, order)
@@ -95,13 +97,13 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
     # Points to evaluate the fourier integral by 1D FFT
     t_j_fft = collect(range(-c̃, c̃; length=(2 * N) + 1))
 
-    # Allocate memory for the Fourier coefficients K̂ⱼ, F̂ⱼ, L̂ⱼ
-    type_α = typeof(α)
-
+    # Allocate memory for the Fourier coefficients K̂ⱼ, L̂ⱼ and the evaluation of the Fourier integrals
     eval_int_fft_1D = Vector{Complex{type_α}}(undef, 2 * N + 1)
+
     shift_sample_eval_int = Vector{Complex{type_α}}(undef, 2 * N)
     fft_eval = Vector{Complex{type_α}}(undef, 2 * N)
     shift_fft_1d = Vector{Complex{type_α}}(undef, 2 * N)
+
     fft_eval_flipped = transpose(Vector{Complex{type_α}}(undef, 2 * N))
 
     K̂ⱼ = Matrix{Complex{type_α}}(undef, N, N)
@@ -130,12 +132,12 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
     fft_Φ₂_eval = rfft(shift_sample_Φ₂)
     rfftshift_normalization!(Φ̂₂ⱼ, fft_Φ₂_eval, N, c̃)
 
-    p = plan_fft!(shift_sample_eval_int; flags=FFTW.ESTIMATE, timelimit=Inf)
+    p = plan_fft!(shift_sample_eval_int)# ; flags=FFTW.ESTIMATE, timelimit=Inf)
 
     for i ∈ 1:N
         # a) Calculate Fourier Coefficients K̂ⱼ (using FFT to compute Fourier integrals)
-        @views get_K̂ⱼ!(K̂ⱼ[i, :], eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, c̃, α, k, N, i, cache_χ, p,
-                        shift_sample_eval_int, fft_eval, shift_fft_1d)
+        @views get_K̂ⱼ!(K̂ⱼ[:, i], t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped,
+                        j_idx, c̃, α, k, N, i, cache_χ, p)
         j₁ = j_idx[i]
 
         # b) Calculate Fourier Coefficients L̂ⱼ
@@ -144,23 +146,26 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
             for j ∈ 1:N
                 j₂ = j_idx[j]
                 F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], Φ̂₂ⱼ[idx_fft_row, j], cache_Yε, type_α)
-                L̂ⱼ[j, i] = K̂ⱼ[i, j] - F̂₁ⱼ + im * α * F̂₂ⱼ
+                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ⱼ + im * α * F̂₂ⱼ
             end
         else
             idx_fft_row = i
             for j ∈ 1:N
                 j₂ = j_idx[j]
                 F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], conj(Φ̂₂ⱼ[idx_fft_row, j]), cache_Yε, type_α)
-                L̂ⱼ[j, i] = K̂ⱼ[i, j] - F̂₁ⱼ + im * α * F̂₂ⱼ
+                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ⱼ + im * α * F̂₂ⱼ
             end
         end
     end
 
-    Lₙ = N^2 / (2 * √(π * c̃)) .* fftshift(ifft(fftshift(L̂ⱼ)))
+    # display(K̂ⱼ)
+    # display(L̂ⱼ)
+
+    Lₙ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ))))
 
     # Create the Bicubic Interpolation function
-    interp_cubic = cubic_spline_interpolation((xx, yy), transpose(Lₙ))
-    # interp_cubic = interpolate((xx, yy), transpose(Lₙ), Gridded(Linear()))    
+    interp_cubic = cubic_spline_interpolation((xx, yy), Lₙ)
+    # interp_cubic = linear_interpolation((xx, yy), Lₙ; extrapolation_bc=Line()) # More efficient but less accurate
 
     return Lₙ, interp_cubic, cache_Yε
 end

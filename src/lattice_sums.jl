@@ -54,11 +54,11 @@ function lattice_sums_calculation(x, csts, Sₗ::AbstractArray; c=0.6, nb_terms=
         r = √(x[1]^2 + x[2]^2)
         θ = atan(x[2], x[1])
 
-        res_ls = Sₗ[1] * besselj0(k * r)
+        res_ls = Sₗ[1] * Bessels.besselj0(k * r)
         for l ∈ 1:L
-            res_ls += 2 * Sₗ[l + 1] * besselj(l, k * r) * cos(l * (π / 2 - θ))
+            res_ls += 2 * Sₗ[l + 1] * Bessels.besselj(l, k * r) * cos(l * (π / 2 - θ))
         end
-        return -im / 4 * (hankelh1(0, k * r) + res_ls)
+        return -im / 4 * (Bessels.hankelh1(0, k * r) + res_ls)
     end
 end
 
@@ -91,7 +91,8 @@ function S₀(β, k, d, M)
         end
     end
 
-    -1 - 2 * im / π * (C_euler + log(k / (2 * p))) - 2 * im / (γ₀ * d) - 2 * im * (k^2 + 2 * β^2) / (p^3 * d) * zeta(3) -
+    -1 - 2 * im / π * (C_euler + log(k / (2 * p))) - 2 * im / (γ₀ * d) -
+    2 * im * (k^2 + 2 * β^2) / (p^3 * d) * SpecialFunctions.zeta(3) -
     2 * im / d * sum_1
 end
 
@@ -135,7 +136,7 @@ function S_even(l, β, k, d, M)
     end
 
     -2 * im * exp(-2 * im * l * θ₀) / (γ₀ * d) - 2 * im * sum_1 -
-    2 * im * (-1)^l / π * (k / (2 * p))^(2 * l) * zeta(2 * l + 1) + im / (l * π) +
+    2 * im * (-1)^l / π * (k / (2 * p))^(2 * l) * SpecialFunctions.zeta(2 * l + 1) + im / (l * π) +
     im / π * sum_2
 end
 
@@ -180,7 +181,7 @@ function S_odd(l, β, k, d, M)
 
     2 * im * exp(-im * (2 * l - 1) * θ₀) / (γ₀ * d) +
     2 * im * sum_1 +
-    2 * (-1)^l * β * d * l / π^2 * (k / (2 * p))^(2 * l - 1) * zeta(2 * l + 1) -
+    2 * (-1)^l * β * d * l / π^2 * (k / (2 * p))^(2 * l - 1) * SpecialFunctions.zeta(2 * l + 1) -
     2 / π * sum_2
 end
 

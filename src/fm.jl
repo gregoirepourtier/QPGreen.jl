@@ -7,15 +7,19 @@ end
 f₀_F̂ⱼ(x, cache::IntegrationCache) = x * log(x) * Yε(x, cache)
 
 """
-    get_K̂ⱼ!((K̂ⱼ, eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, c̃, α, k, N, i, cache)
+    get_K̂ⱼ!((K̂ⱼ, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped,
+             j_idx, c̃, α::T, k, N, i, cache, p)
 
 Mutation function that computes the Fourier coefficients K̂ⱼ.
 Input arguments:
 
   - K̂ⱼ: matrix to store the Fourier coefficients
-  - eval_int_fft_1D: vector to store the evaluation of the 1D Fourier integral by FFT
-  - fft_eval_flipped: vector to store the flipped eval_int_fft_1D
   - t_j_fft: grid points to evaluate the Fourier integral by 1D FFT
+  - eval_int_fft_1D: vector to store the evaluation of the 1D Fourier integral by FFT
+  - shift_sample_eval_int: vector to store the shifted evaluation of the integrand
+  - fft_eval: vector to store the evaluation of the 1D Fourier integral by FFT
+  - shift_fft_1d: vector to store the shifted evaluation of the 1D Fourier integral by FFT
+  - fft_eval_flipped: vector to store the flipped eval_int_fft_1D
   - j_idx: index of the grid points
   - c̃: parameter of the algorithm
   - α: quasi-periodicity parameter
@@ -23,11 +27,12 @@ Input arguments:
   - N: size of the grid
   - i: index of the grid points
   - cache: cache for the cut-off function Yε
+  - p: plan for the FFT
 
 Returns the Fourier coefficients K̂ⱼ.
 """
-function get_K̂ⱼ!(K̂ⱼ, eval_int_fft_1D, fft_eval_flipped, t_j_fft, j_idx, c̃, α::T, k, N, i, cache::IntegrationCache, p,
-                  shift_sample_eval_int, fft_eval, shift_fft_1d) where {T}
+function get_K̂ⱼ!(K̂ⱼ, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped,
+                  j_idx, c̃, α::T, k, N, i, cache::IntegrationCache, p) where {T}
 
     αₙ = α + j_idx[i]
     βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
@@ -139,6 +144,11 @@ function get_t(x)
     t
 end
 
+"""
+    rfftshift_normalization!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
+
+Shift the Fourier coefficients obtained by rfft and normalize them.
+"""
 function rfftshift_normalization!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
     circshift!(Φ̂₁ⱼ, fft_Φ₁_eval, (0, N ÷ 2))
     @views reverse!(Φ̂₁ⱼ, dims=1)

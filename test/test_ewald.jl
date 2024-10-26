@@ -8,7 +8,7 @@ using QPGreen
     csts = (a, M₁, M₂, N, β, k, d)
 
     # Test to match parameter from the paper (Linton, 1998)
-    @test (X / d == 0.0, Y / d == 0.01, k * d == 2, β * d == √2)
+    @test (X / d == 0.0, Y / d == 0.01, k * d == 2, β * d == √2) == (true, true, true, true)
 
     res_ewald = QPGreen.ewald([X, Y], csts)
     @test isapprox(res_ewald, -0.4595298795 - 0.3509130869im)
@@ -17,7 +17,7 @@ using QPGreen
     csts = (a, M₁, M₂, N, β, k, d)
 
     # Test to match parameter from the paper (Linton, 1998)
-    @test (X / d == 0.0, Y / d == 0.01, k * d == 2, β * d == √2)
+    @test (X / d == 0.0, Y / d == 0.01, k * d == 2, β * d == √2) == (true, true, true, true)
 
     res_ewald = QPGreen.ewald([X, Y], csts)
     @test isapprox(res_ewald, -0.4595298795 - 0.3509130869im, atol=1e-6)

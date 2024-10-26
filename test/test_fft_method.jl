@@ -10,7 +10,6 @@ res_eig = eigfunc_expansion(Z, params.k, params.α; nb_terms=10000);
 res_img = image_expansion(Z, params.k, params.α; nb_terms=200000);
 
 grid_size = 5;
-# @code_warntype fm_method_preparation(params, grid_size);
 preparation_result, interp, cache = fm_method_preparation(params, grid_size);
 fm_method_calculation(Z, params, preparation_result, interp, cache; nb_terms=32);
 

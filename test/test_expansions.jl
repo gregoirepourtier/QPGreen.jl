@@ -1,7 +1,6 @@
 using QPGreen
 using Test
 
-# Test image_expansion
 function test_expansions()
 
     z = [1.0, 2.0]

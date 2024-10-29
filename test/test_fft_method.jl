@@ -29,7 +29,6 @@ function QPGreenFunction_eval(params, points, idx, tol; verbose=false)
     end
 end
 
-
 @testset "Paper FFT-based algorithm, B. Zhang and R. Zhang" begin
 
     P1 = (0.01π, 0.0)
@@ -53,4 +52,9 @@ end
     # Refer to Table 4
     params = (α=-√2, k=100, c=0.6, c̃=1.0, ε=0.4341, order=8)
     QPGreenFunction_eval(params, points, 8:10, 1e-2; verbose=false)
+end
+
+@testset "Paper Green's function for the 2D Helmholtz equation in periodic domains, C.M Linton" begin
+    P1 = (0.01π, 0.0)
+
 end

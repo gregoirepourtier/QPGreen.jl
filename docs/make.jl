@@ -1,10 +1,8 @@
 using QPGreen
 using Documenter
 using DocumenterCitations
-using DocumenterInterLinks
 
 DocMeta.setdocmeta!(QPGreen, :DocTestSetup, :(using QPGreen); recursive=true)
-
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style=:numeric)
 
 makedocs(;

@@ -106,13 +106,13 @@ function f₁(x, cache::IntegrationCache)
 end
 
 """
-    f₂(x, Yε::T)
+    f₂(x, cache)
 
 Calculate the function f₂.
 Input arguments:
 
   - x: point at which the function is evaluated
-  - Yε: cut-off function Yε
+  - cache: cache for the cut-off function Yε
 
 Returns the value of the function f₂.
 """
@@ -120,6 +120,44 @@ function f₂(x, cache::IntegrationCache)
     x_norm = norm(x)
 
     return -1 / (2 * π) * x[1] * log(x_norm) * Yε(x_norm, cache)
+end
+
+"""
+    h₁(x, α, cache)
+
+Calculate the function h₁.
+Input arguments:
+
+  - x: point at which the function is evaluated
+  - α: quasi-periodicity parameter
+  - cache: cache for the cut-off function Yε
+
+Returns the value of the function h₁.
+"""
+function h₁(x, α, cache::IntegrationCache)
+    x_norm = norm(x)
+    return -1 / (2 * π) *
+           (-k^2 / 2 * x[1] * log(x_norm) + x[1] / x_norm^2 - i * α * x[1]^2 / x_norm^2 - α^2 / 2 * x[1]^3 / x_norm^2) *
+           Yε(x_norm, cache)
+end
+
+"""
+    h₂(x, α, cache)
+
+Calculate the function h₂.
+Input arguments:
+
+  - x: point at which the function is evaluated
+  - α: quasi-periodicity parameter
+  - cache: cache for the cut-off function Yε
+
+Returns the value of the function h₂.
+"""
+function h₂(x, α, cache::IntegrationCache)
+    x_norm = norm(x)
+    return -1 / (2 * π) *
+           (-k^2 / 2 * x[1] * log(x_norm) + x[2] / x_norm^2 - i * α * x[1] * x[2] / x_norm^2 - α^2 / 2 * x[1]^2 * x[2] / x_norm^2) *
+           Yε(x_norm, cache)
 end
 
 """

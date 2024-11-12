@@ -1,5 +1,22 @@
-# Derivatives of the Green's function
+# First Order derivatives of the Green's function
 
+"""
+    analytical_derivative(z, k, α; period=2π, nb_terms=100)
+
+Calculate the derivative of the Green's function using the eigenfunction expansion.
+Input arguments:
+
+  - z: 2D array
+  - k: real number
+  - α: real number
+
+Keyword arguments:
+
+  - period: period of the function
+  - nb_terms: number of terms in the series expansion
+
+Returns the value of the derivative of the Green's function.
+"""
 function analytical_derivative(z, k, α; period=2π, nb_terms=100)
 
     G_prime_x1 = zero(Complex{eltype(z)})
@@ -21,13 +38,18 @@ function analytical_derivative(z, k, α; period=2π, nb_terms=100)
 end
 
 
-function get_Ĥⱼ(j₁, j₂, c̃, k, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃, cache::IntegrationCache, ::Type{type_α}) where {type_α}
+"""
+    get_Ĥⱼ(j₁, j₂, c̃, k, α, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃, cache::IntegrationCache, ::Type{type_α})
+
+Calculate the Fourier coefficients Ĥⱼ.
+"""
+function get_Ĥⱼ(j₁, j₂, c̃, k, α, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃, cache::IntegrationCache, ::Type{type_α}) where {type_α}
     if (j₁^2 + j₂^2) ≠ 0
         cst = 1 / (j₁^2 + j₂^2 * π^2 / c̃^2)
-        temp_1 = cst * (1 / (2 * π) * Ψ̂₁ⱼ₁)
+        temp_1 = 1 / (2 * π) * Ψ̂₁ⱼ₁
         temp_2 = -2 * im * j₁ * temp_1 + 1 / (2 * π) * Ψ̂₁ⱼ₂
         temp_3 = -2 * im * j₁ * temp_2 + 1 / (2 * π) * Ψ̂₁ⱼ₃
-        Ĥ₁ⱼ = -k^2 / 2 .* F̂₂ⱼ + temp_1 - im * α * cst * temp_2 - α^2 / 2 * temp_3
+        Ĥ₁ⱼ = -k^2 / 2 * F̂₂ⱼ + cst * (temp_1 - im * α * temp_2 - α^2 / 2 * temp_3 + im * j₁ / (4 * √(π * c̃)))
 
         Ĥ₂ⱼ = 0
         # F̂₁ⱼ = 1 / cst * (1 / (2 * √(π * c̃)) + 1 / (2 * π) * Φ̂₁ⱼ)
@@ -140,7 +162,8 @@ function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
             for j ∈ 1:N
                 j₂ = j_idx[j]
                 F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], Φ̂₂ⱼ[idx_fft_row, j], cache_Yε, type_α)
-                Ĥ₁ⱼ, Ĥ₂ⱼ = get_Ĥⱼ(j₁, j₂, c̃, k, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃, cache_Yε, type_α)
+                Ĥ₁ⱼ, Ĥ₂ⱼ = get_Ĥⱼ(j₁, j₂, c̃, k, α, F̂₂ⱼ, Ψ̂₁ⱼ₁[idx_fft_row, j], Ψ̂₁ⱼ₂[idx_fft_row, j], Ψ̂₁ⱼ₃[idx_fft_row, j],
+                                     cache_Yε, type_α)
                 # L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ⱼ + im * α * F̂₂ⱼ
                 L̂ⱼ[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - Ĥ₁ⱼ
             end
@@ -149,7 +172,8 @@ function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
             for j ∈ 1:N
                 j₂ = j_idx[j]
                 F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], Φ̂₂ⱼ[idx_fft_row, j], cache_Yε, type_α)
-                Ĥ₁ⱼ, Ĥ₂ⱼ = get_Ĥⱼ(j₁, j₂, c̃, k, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃, cache_Yε, type_α)
+                Ĥ₁ⱼ, Ĥ₂ⱼ = get_Ĥⱼ(j₁, j₂, c̃, k, α, F̂₂ⱼ, Ψ̂₁ⱼ₁[idx_fft_row, j], Ψ̂₁ⱼ₂[idx_fft_row, j], Ψ̂₁ⱼ₃[idx_fft_row, j],
+                                     cache_Yε, type_α)
                 # L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ⱼ + im * α * F̂₂ⱼ
                 L̂ⱼ[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - Ĥ₁ⱼ
             end
@@ -185,8 +209,8 @@ function fm_method_calculation_derivative(x, csts::NamedTuple, Lₙ, interp_cubi
         Lₙ_t_x₂ = interp_cubic(t, x[2])
 
         # Get K(t, x₂)
-        K₁_t_x₂ = Lₙ_t_x₂ + h₁((t, x[2]), α, cache_Yε)
-        K₂_t_x₂ = Lₙ_t_x₂ + h₂((t, x[2]), α, cache_Yε)
+        K₁_t_x₂ = Lₙ_t_x₂ + h₁((t, x[2]), k, α, cache_Yε)
+        K₂_t_x₂ = 0.0 # Lₙ_t_x₂ + h₂((t, x[2]), k, α, cache_Yε)
 
         # Calculate the approximate value of G(x)
         der_G_x₁ = exp(im * α * x[1]) * K₁_t_x₂

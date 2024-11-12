@@ -139,10 +139,10 @@ Input arguments:
 
 Returns the value of the function h₁.
 """
-function h₁(x, α, cache::IntegrationCache)
+function h₁(x, k, α, cache::IntegrationCache)
     x_norm = norm(x)
     return -1 / (2 * π) *
-           (-k^2 / 2 * x[1] * log(x_norm) + x[1] / x_norm^2 - i * α * x[1]^2 / x_norm^2 - α^2 / 2 * x[1]^3 / x_norm^2) *
+           (-k^2 / 2 * x[1] * log(x_norm) + x[1] / x_norm^2 - im * α * x[1]^2 / x_norm^2 - α^2 / 2 * x[1]^3 / x_norm^2) *
            Yε(x_norm, cache)
 end
 
@@ -158,11 +158,11 @@ Input arguments:
 
 Returns the value of the function h₂.
 """
-function h₂(x, α, cache::IntegrationCache)
+function h₂(x, k, α, cache::IntegrationCache)
     x_norm = norm(x)
     return -1 / (2 * π) *
-           (-k^2 / 2 * x[1] * log(x_norm) + x[2] / x_norm^2 - i * α * x[1] * x[2] / x_norm^2 - α^2 / 2 * x[1]^2 * x[2] / x_norm^2) *
-           Yε(x_norm, cache)
+           (-k^2 / 2 * x[1] * log(x_norm) + x[2] / x_norm^2 - im * α * x[1] * x[2] / x_norm^2 -
+            α^2 / 2 * x[1]^2 * x[2] / x_norm^2) * Yε(x_norm, cache)
 end
 
 """

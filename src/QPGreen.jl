@@ -23,7 +23,7 @@ include("api.jl")
 include("cutoff_functions.jl")
 include("fm.jl")
 
-include("derivatives.jl")
+include("gradient.jl")
 export analytical_derivative, fm_method_preparation_derivative, fm_method_calculation_derivative
 
 

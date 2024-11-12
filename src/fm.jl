@@ -4,7 +4,12 @@ function Φ₁(x, cache::IntegrationCache)
     return (2 + log(x)) * Yε_1st_der(x, cache) / x + Yε_2nd_der(x, cache) * log(x)
 end
 
+function Ψ₁₁(x, x_norm, cache::IntegrationCache)
+    return x[1] / x_norm^2 * (Yε_2nd_der(x_norm, cache) + 1 / x_norm * Yε_1st_der(x_norm, cache))
+end
+
 f₀_F̂ⱼ(x, cache::IntegrationCache) = x * log(x) * Yε(x, cache)
+f₀_Ĥⱼ(x, cache::IntegrationCache) = x * Yε(x, cache)
 
 """
     get_K̂ⱼ!((K̂ⱼ, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped,

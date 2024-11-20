@@ -5,8 +5,10 @@ function Φ₁(x, cache::IntegrationCache)
 end
 
 function Ψ₁₁(x, x_norm, cache::IntegrationCache)
-    return x[1] / x_norm^2 * (Yε_2nd_der(x_norm, cache) + 1 / x_norm * Yε_1st_der(x_norm, cache))
+    return x[1] / x_norm^2 * Yε_2nd_der(x_norm, cache) - x[1] / x_norm^3 * Yε_1st_der(x_norm, cache)
 end
+
+integrand_fourier_fft_1D(x, βⱼ, cache) = exp(im * βⱼ * x) * χ_der(x, cache)
 
 f₀_F̂ⱼ(x, cache::IntegrationCache) = x * log(x) * Yε(x, cache)
 f₀_Ĥⱼ(x, cache::IntegrationCache) = x * Yε(x, cache)
@@ -70,7 +72,7 @@ Input arguments:
 
   - j₁: first index
   - j₂: second index
-  - c̃: parameter of the basis function
+  - c̃: parameter of the periodicity
   - Φ̂₁ⱼ: Fourier coefficients of the function Φ₁
   - Φ̂₂ⱼ: Fourier coefficients of the function Φ₂
   - cache: cache for the cut-off function Yε
@@ -128,18 +130,18 @@ function f₂(x, cache::IntegrationCache)
 end
 
 """
-    h₁(x, α, cache)
+    h₁(x, csts, cache)
 
 Calculate the function h₁.
 Input arguments:
 
   - x: point at which the function is evaluated
-  - α: quasi-periodicity parameter
-  - cache: cache for the cut-off function Yε
+  - csts: Named tuple of the constants for the problem definition
 
 Returns the value of the function h₁.
 """
-function h₁(x, k, α, cache::IntegrationCache)
+function h₁(x, csts, cache::IntegrationCache)
+    α, k = (csts.α, csts.k)
     x_norm = norm(x)
     return -1 / (2 * π) *
            (-k^2 / 2 * x[1] * log(x_norm) + x[1] / x_norm^2 - im * α * x[1]^2 / x_norm^2 - α^2 / 2 * x[1]^3 / x_norm^2) *
@@ -147,18 +149,18 @@ function h₁(x, k, α, cache::IntegrationCache)
 end
 
 """
-    h₂(x, α, cache)
+    h₂(x, csts, cache)
 
 Calculate the function h₂.
 Input arguments:
 
   - x: point at which the function is evaluated
-  - α: quasi-periodicity parameter
-  - cache: cache for the cut-off function Yε
+  - csts: Named tuple of the constants for the problem definition
 
 Returns the value of the function h₂.
 """
-function h₂(x, k, α, cache::IntegrationCache)
+function h₂(x, csts, cache::IntegrationCache)
+    α, k = (csts.α, csts.k)
     x_norm = norm(x)
     return -1 / (2 * π) *
            (-k^2 / 2 * x[1] * log(x_norm) + x[2] / x_norm^2 - im * α * x[1] * x[2] / x_norm^2 -

@@ -2,11 +2,11 @@ using Test
 using QPGreen
 
 @testset "Expansions" begin
-    include("test_expansions.jl")
+    include("other_tests/test_expansions.jl")
 end
 
 @testset "Ewald method" begin
-    include("test_ewald.jl")
+    include("other_tests/test_ewald.jl")
 end
 
 @testset "FFT based algorithm" begin
@@ -14,5 +14,5 @@ end
 end
 
 @testset "Lattice Sums" begin
-    include("test_lattice_sums.jl")
+    include("other_tests/test_lattice_sums.jl")
 end

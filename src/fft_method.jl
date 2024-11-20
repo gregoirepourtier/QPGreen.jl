@@ -1,65 +1,5 @@
 # FFT-based algorithm to compute quasi-periodic Green's function for 2D Helmholtz equation
 
-abstract type AbstractIntegrationCache end
-
-"""
-$(TYPEDEF)
-
-Structure storing the parameters of integration for the cutoff functions.
-
-$(TYPEDFIELDS)
-"""
-struct IntegrationParameters{T1 <: Real, T2 <: Signed}
-    """
-    Lower bound
-    """
-    a::T1
-
-    """
-    Upper bound
-    """
-    b::T1
-
-    """
-    Order of the cutoff function
-    """
-    order::T2
-end
-
-Base.:-(x::IntegrationParameters) = IntegrationParameters(-x.b, -x.a, x.order)
-
-polynomial_cutoff(x, _int::IntegrationParameters) = (x - _int.a)^_int.order * (x - _int.b)^_int.order
-function polynomial_cutoff_derivative(x, _int::IntegrationParameters)
-    _int.order * (x - _int.a)^(_int.order - 1) * (x - _int.b)^_int.order +
-    _int.order * (x - _int.a)^_int.order * (x - _int.b)^(_int.order - 1)
-end
-int_polynomial_cutoff(x, _int::IntegrationParameters) = quadgk(x_ -> polynomial_cutoff(x_, _int), _int.a, x)[1]
-
-"""
-$(TYPEDEF)
-
-Structure storing the normalization factor and the parameters of integration for the cutoff functions.
-
-$(TYPEDFIELDS)
-"""
-struct IntegrationCache{T1 <: Real, T2 <: Signed} <: AbstractIntegrationCache
-    """
-    Normalization factor
-    """
-    normalization::T1
-
-    """
-    Parameters of integration
-    """
-    params::IntegrationParameters{T1, T2}
-end
-
-function IntegrationCache(poly::IntegrationParameters)
-    IntegrationCache(1 / quadgk(x_ -> polynomial_cutoff(x_, poly), poly.a, poly.b)[1], poly)
-end
-
-integrand_fourier_fft_1D(x, βⱼ, cache) = exp(im * βⱼ * x) * χ_der(x, cache)
-
 """
     fm_method_preparation(csts, grid_size)
 
@@ -90,6 +30,8 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
     N = 2 * grid_size
     xx = range(-π, π - π / grid_size; length=N)
     yy = range(-c̃, c̃ - c̃ / grid_size; length=N)
+
+    # fft_cache = FFT_cache(N, grid_size, csts, type_α)
 
     # index of grid points -grid_size ≤ j ≤ grid_size-1
     j_idx = collect((-grid_size):(grid_size - 1))
@@ -158,9 +100,6 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
         end
     end
 
-    # display(K̂ⱼ)
-    # display(L̂ⱼ)
-
     Lₙ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ))))
 
     # Create the Bicubic Interpolation function
@@ -191,13 +130,13 @@ Returns the approximate value of the Green's function G(x).
 """
 function fm_method_calculation(x, csts::NamedTuple, Lₙ, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=100) where {T}
 
-    α, k, c = (csts.α, csts.k, csts.c)
+    α, c = (csts.α, csts.c)
     N, M = size(Lₙ)
 
     @assert N==M "Problem dimensions"
 
     if abs(x[2]) > c
-        return eigfunc_expansion(x, k, α; nb_terms=nb_terms)
+        return eigfunc_expansion(x, csts; nb_terms=nb_terms)
     else
         t = get_t(x[1])
 

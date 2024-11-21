@@ -59,42 +59,53 @@ function IntegrationCache(poly::IntegrationParameters)
 end
 
 
-# struct FFT_cache{T1 <: Integer, T2 <: Real, T3 <: Real}
-#     """
-#     index of grid points -grid_size ≤ j ≤ grid_size-1
-#     """
-#     j_idx::Vector{T1}
+struct FFT_cache{T1 <: Integer, T2 <: Real, T3 <: Real}
+    """
+    index of grid points -grid_size ≤ j ≤ grid_size-1
+    """
+    j_idx::Vector{T1}
 
-#     """
-#     Points to evaluate the fourier integral by 1D FFT
-#     """
-#     t_j_fft::Vector{T2}
+    """
+    Points to evaluate the fourier integral by 1D FFT
+    """
+    t_j_fft::Vector{T2}
 
-#     """
-#     Evaluation of the Fourier integrals
-#     """
-#     eval_int_fft_1D::Vector{Complex{T3}}
+    """
+    Evaluation of the Fourier integrals
+    """
+    eval_int_fft_1D::Vector{Complex{T3}}
 
-#     shift_sample_eval_int::Vector{Complex{T3}}
-#     fft_eval::Vector{Complex{T3}}
-#     shift_fft_1d::Vector{Complex{T3}}
+    """
+    """
+    shift_sample_eval_int::Vector{Complex{T3}}
 
-#     fft_eval_flipped::Transpose{Complex{T3}, Vector{Complex{T3}}}
-# end
+    """
+    """
+    fft_eval::Vector{Complex{T3}}
 
-# function FFT_cache(N, grid_size::Integer, csts::NamedTuple, type_α)
+    """
+    """
+    shift_fft_1d::Vector{Complex{T3}}
 
-#     c̃ = csts.c̃
+    """
+    """
+    fft_eval_flipped::Transpose{Complex{T3}, Vector{Complex{T3}}}
+end
 
-#     j_idx = collect((-grid_size):(grid_size - 1))
-#     t_j_fft = collect(range(-c̃, c̃; length=(2 * N) + 1))
-#     eval_int_fft_1D = Vector{Complex{type_α}}(undef, 2 * N + 1)
+function FFT_cache(N, grid_size::Integer, csts::NamedTuple, ::Type{type_α}) where {type_α}
 
-#     shift_sample_eval_int = Vector{Complex{type_α}}(undef, 2 * N)
-#     fft_eval = Vector{Complex{type_α}}(undef, 2 * N)
-#     shift_fft_1d = Vector{Complex{type_α}}(undef, 2 * N)
+    c̃ = csts.c̃
 
-#     fft_eval_flipped = transpose(Vector{Complex{type_α}}(undef, 2 * N))
+    j_idx = collect((-grid_size):(grid_size - 1))
+    t_j_fft = collect(range(-c̃, c̃; length=(2 * N) + 1))
 
-#     FFT_cache(j_idx, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped)
-# end
+    eval_int_fft_1D = Vector{Complex{type_α}}(undef, 2 * N + 1)
+
+    shift_sample_eval_int = Vector{Complex{type_α}}(undef, 2 * N)
+    fft_eval = Vector{Complex{type_α}}(undef, 2 * N)
+    shift_fft_1d = Vector{Complex{type_α}}(undef, 2 * N)
+
+    fft_eval_flipped = transpose(Vector{Complex{type_α}}(undef, 2 * N))
+
+    FFT_cache(j_idx, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped)
+end

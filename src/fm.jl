@@ -38,30 +38,30 @@ Input arguments:
 
 Returns the Fourier coefficients K̂ⱼ.
 """
-function get_K̂ⱼ!(K̂ⱼ, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped,
-                  j_idx, c̃, α::T, k, N, i, cache::IntegrationCache, p) where {T}
+function get_K̂ⱼ!(K̂ⱼ, csts, N, i, fft_cache::FFT_cache{T1, T2, T}, cache::IntegrationCache, p) where {T1, T2, T}
 
-    αₙ = α + j_idx[i]
+    α, k, c̃ = (csts.α, csts.k, csts.c̃)
+
+    αₙ = α + fft_cache.j_idx[i]
     βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
 
-    eval_int_fft_1D .= integrand_fourier_fft_1D.(t_j_fft, βₙ, Ref(cache))
-    eval_int_fft_1D[1:N] .= zero(Complex{T})
-    @views fftshift!(shift_sample_eval_int, eval_int_fft_1D[1:(end - 1)])
-    fft_eval .= p * shift_sample_eval_int
-    fftshift!(shift_fft_1d, fft_eval)
-    shift_fft_1d = transpose(shift_fft_1d)
-    fft_eval_flipped .= shift_fft_1d
-    reverse!(fft_eval_flipped)
+    fft_cache.eval_int_fft_1D .= integrand_fourier_fft_1D.(fft_cache.t_j_fft, βₙ, Ref(cache))
+    fft_cache.eval_int_fft_1D[1:N] .= zero(Complex{T})
+    @views fftshift!(fft_cache.shift_sample_eval_int, fft_cache.eval_int_fft_1D[1:(end - 1)])
+    fft_cache.fft_eval .= p * fft_cache.shift_sample_eval_int
+    fftshift!(fft_cache.shift_fft_1d, fft_cache.fft_eval)
+    fft_cache.fft_eval_flipped .= transpose(fft_cache.shift_fft_1d)
+    reverse!(fft_cache.fft_eval_flipped)
 
-    @views integral_1 = shift_fft_1d[(N ÷ 2 + 1):(N ÷ 2 + N)]
+    @views integral_1 = fft_cache.shift_fft_1d[(N ÷ 2 + 1):(N ÷ 2 + N)]
     integral_1 .*= c̃ / N
 
-    @views integral_2 = fft_eval_flipped[(N ÷ 2):(N ÷ 2 + N - 1)]
+    @views integral_2 = fft_cache.fft_eval_flipped[(N ÷ 2):(N ÷ 2 + N - 1)]
     integral_2 .*= c̃ / N
 
-    @. K̂ⱼ = 1 / (2 * √(π * c̃)) * (1 / (αₙ^2 + (j_idx * π / c̃)^2 - k^2) +
-              1 / (2 * βₙ * (j_idx * π / c̃ - βₙ)) * integral_1 -
-              1 / (2 * βₙ * (j_idx * π / c̃ + βₙ)) * integral_2)
+    @. K̂ⱼ = 1 / (2 * √(π * c̃)) * (1 / (αₙ^2 + (fft_cache.j_idx * π / c̃)^2 - k^2) +
+              1 / (2 * βₙ * (fft_cache.j_idx * π / c̃ - βₙ)) * integral_1 -
+              1 / (2 * βₙ * (fft_cache.j_idx * π / c̃ + βₙ)) * integral_2)
 end
 
 """

@@ -8,8 +8,8 @@ using BenchmarkTools: @btime
 Z = (0.002π, 0.0);
 params = (α=0.3, k=1.0, c=0.6, c̃=1.0, ε=0.4341, order=8);
 
-@btime res_eig = eigfunc_expansion($Z, $params; nb_terms=100);
-@btime res_img = image_expansion($Z, $params; nb_terms=100);
+# @btime res_eig = eigfunc_expansion($Z, $params; nb_terms=100);
+# @btime res_img = image_expansion($Z, $params; nb_terms=100);
 
 grid_size = 1024;
 preparation_result, interp, cache = fm_method_preparation(params, grid_size);

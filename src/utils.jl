@@ -59,11 +59,11 @@ function IntegrationCache(poly::IntegrationParameters)
 end
 
 
-struct FFT_cache{T1 <: Integer, T2 <: Real, T3 <: Real}
+struct FFT_cache{T1 <: Real, T2 <: Real, T3 <: Integer}
     """
     index of grid points -grid_size ≤ j ≤ grid_size-1
     """
-    j_idx::Vector{T1}
+    j_idx::Vector{T3}
 
     """
     Points to evaluate the fourier integral by 1D FFT
@@ -73,23 +73,23 @@ struct FFT_cache{T1 <: Integer, T2 <: Real, T3 <: Real}
     """
     Evaluation of the Fourier integrals
     """
-    eval_int_fft_1D::Vector{Complex{T3}}
+    eval_int_fft_1D::Vector{Complex{T1}}
 
     """
     """
-    shift_sample_eval_int::Vector{Complex{T3}}
+    shift_sample_eval_int::Vector{Complex{T1}}
 
     """
     """
-    fft_eval::Vector{Complex{T3}}
+    fft_eval::Vector{Complex{T1}}
 
     """
     """
-    shift_fft_1d::Vector{Complex{T3}}
+    shift_fft_1d::Vector{Complex{T1}}
 
     """
     """
-    fft_eval_flipped::Transpose{Complex{T3}, Vector{Complex{T3}}}
+    fft_eval_flipped::Transpose{Complex{T1}, Vector{Complex{T1}}}
 end
 
 function FFT_cache(N, grid_size::Integer, csts::NamedTuple, ::Type{type_α}) where {type_α}

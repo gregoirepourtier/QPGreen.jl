@@ -6,15 +6,17 @@ using Printf, LinearAlgebra
 
 # Z = (0.002π, 0.0);
 
-Z = (0.002π, 0.01);
-# Z = (0.05π, 0.01);
-params = (α=0.3, k=1.0, c=0.6, c̃=1.0, ε=0.4341, order=8);
-# params = (α=0.3, k=(√(10)), c=0.6, c̃=1.0, ε=0.4341, order=8);
+# Z = (0.002π, 0.01);
+Z = (0.01π, 0.01);
+# params = (α=0.3, k=1.0, c=0.6, c̃=1.0, ε=0.4341, order=8);
+params = (α=0.3, k=(√(10)), c=0.6, c̃=1.0, ε=0.4341, order=8);
 
+# res_der = eigfunc_expansion(Z, params; nb_terms=100_000_000)
 res_der = analytical_derivative(Z, params; nb_terms=100_000_000)
 
 # res = (0.050308789349485 + 0.10989902020665852im, 0.0 + 0.0im); # nb_terms=100_000_000 for Z = (0.002π, 0.0)
-res = res_der[1] # (-24.654079665241486 + 0.06215272762758034im, -3.9322899312645165 - 0.00013269041328632292im); # nb_terms=100_000_000 for Z = (0.002π, 0.001)
+# (-24.654079665241486 + 0.06215272762758034im, -3.9322899312645165 - 0.00013269041328632292im); # nb_terms=100_000_000 for Z = (0.002π, 0.001)
+res = res_der[1]
 
 grid_size = 1024;
 preparation_result, interp, cache = fm_method_preparation_derivative(params, grid_size);

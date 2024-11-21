@@ -14,31 +14,22 @@ f₀_F̂ⱼ(x, cache::IntegrationCache) = x * log(x) * Yε(x, cache)
 f₀_Ĥⱼ(x, cache::IntegrationCache) = x * Yε(x, cache)
 
 """
-    get_K̂ⱼ!((K̂ⱼ, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped,
-             j_idx, c̃, α::T, k, N, i, cache, p)
+    get_K̂ⱼ!((K̂ⱼ, csts, N, i, fft_cache, cache, p)
 
-Mutation function that computes the Fourier coefficients K̂ⱼ.
+Mutating function that computes the Fourier coefficients K̂ⱼ.
 Input arguments:
 
   - K̂ⱼ: matrix to store the Fourier coefficients
-  - t_j_fft: grid points to evaluate the Fourier integral by 1D FFT
-  - eval_int_fft_1D: vector to store the evaluation of the 1D Fourier integral by FFT
-  - shift_sample_eval_int: vector to store the shifted evaluation of the integrand
-  - fft_eval: vector to store the evaluation of the 1D Fourier integral by FFT
-  - shift_fft_1d: vector to store the shifted evaluation of the 1D Fourier integral by FFT
-  - fft_eval_flipped: vector to store the flipped eval_int_fft_1D
-  - j_idx: index of the grid points
-  - c̃: parameter of the algorithm
-  - α: quasi-periodicity parameter
-  - k: wavenumber
+  - csts: Named tuple of the constants for the problem definition
   - N: size of the grid
   - i: index of the grid points
+  - fft_cache: cache for the FFT
   - cache: cache for the cut-off function Yε
   - p: plan for the FFT
 
 Returns the Fourier coefficients K̂ⱼ.
 """
-function get_K̂ⱼ!(K̂ⱼ, csts, N, i, fft_cache::FFT_cache{T1, T2, T}, cache::IntegrationCache, p) where {T1, T2, T}
+function get_K̂ⱼ!(K̂ⱼ, csts, N, i, fft_cache::FFT_cache{T}, cache::IntegrationCache, p) where {T}
 
     α, k, c̃ = (csts.α, csts.k, csts.c̃)
 

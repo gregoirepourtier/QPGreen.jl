@@ -40,12 +40,14 @@ end
 
 
 """
-    get_Ĥⱼ(j₁, j₂, csts, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃, cache::IntegrationCache, ::Type{type_α})
+    get_Ĥⱼ(j₁, j₂, csts, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃, cache, type_α)
 
 Calculate the Fourier coefficients Ĥⱼ.
 """
 function get_Ĥⱼ(j₁, j₂, csts::NamedTuple, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃, cache::IntegrationCache, ::Type{type_α}) where {type_α}
+
     c̃, k, α = (csts.c̃, csts.k, csts.α)
+
     if (j₁^2 + j₂^2) ≠ 0
         cst = 1 / (j₁^2 + j₂^2 * π^2 / c̃^2)
         Λ̂₁ⱼ = cst * (1 / (2 * π) * Ψ̂₁ⱼ₁ + im * j₁ / (4 * √(π * c̃)))
@@ -64,7 +66,7 @@ function get_Ĥⱼ(j₁, j₂, csts::NamedTuple, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂
 end
 
 """
-fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
+    fm_method_preparation_derivative(csts, grid_size)
 
 Preparation of the Fourier coefficients for the first order derivative of the Green's function.
 """
@@ -87,20 +89,7 @@ function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
     xx = range(-π, π - π / grid_size; length=N)
     yy = range(-c̃, c̃ - c̃ / grid_size; length=N)
 
-    # index of grid points -grid_size ≤ j ≤ grid_size-1
-    j_idx = collect((-grid_size):(grid_size - 1))
-
-    # Points to evaluate the fourier integral by 1D FFT
-    t_j_fft = collect(range(-c̃, c̃; length=(2 * N) + 1))
-
-    # Allocate memory for the Fourier coefficients K̂ⱼ, L̂ⱼ and the evaluation of the Fourier integrals
-    eval_int_fft_1D = Vector{Complex{type_α}}(undef, 2 * N + 1)
-
-    shift_sample_eval_int = Vector{Complex{type_α}}(undef, 2 * N)
-    fft_eval = Vector{Complex{type_α}}(undef, 2 * N)
-    shift_fft_1d = Vector{Complex{type_α}}(undef, 2 * N)
-
-    fft_eval_flipped = transpose(Vector{Complex{type_α}}(undef, 2 * N))
+    fft_cache = FFT_cache(N, grid_size, csts, type_α)
 
     K̂ⱼ = Matrix{Complex{type_α}}(undef, N, N)
     L̂ⱼ = Matrix{Complex{type_α}}(undef, N, N)
@@ -139,16 +128,15 @@ function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
     Ψ̂₁ⱼ₂ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Ψ₁₂)))
     Ψ̂₁ⱼ₃ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Ψ₁₃)))
 
-    p = plan_fft!(shift_sample_eval_int)
+    p = plan_fft!(fft_cache.shift_sample_eval_int)
 
     for i ∈ 1:N
         # a) Calculate Fourier Coefficients K̂ⱼ (using FFT to compute Fourier integrals)
-        @views get_K̂ⱼ!(K̂ⱼ[:, i], t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped,
-                        j_idx, c̃, α, k, N, i, cache_χ, p)
-        j₁ = j_idx[i]
+        @views get_K̂ⱼ!(K̂ⱼ[:, i], csts, N, i, fft_cache, cache_χ, p)
+        j₁ = fft_cache.j_idx[i]
 
         for j ∈ 1:N
-            j₂ = j_idx[j]
+            j₂ = fft_cache.j_idx[j]
             # b) Calculate Fourier Coefficients L̂ⱼ
             F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[i, j], Φ̂₂ⱼ[i, j], cache_Yε, type_α)
             Ĥ₁ⱼ, Ĥ₂ⱼ = get_Ĥⱼ(j₁, j₂, csts, F̂₂ⱼ, Ψ̂₁ⱼ₁[i, j], Ψ̂₁ⱼ₂[i, j], Ψ̂₁ⱼ₃[i, j], cache_Yε, type_α)

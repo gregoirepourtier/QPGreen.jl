@@ -13,7 +13,7 @@ Returns the Fourier coefficients of the function Lₙ.
 """
 function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
 
-    α, k, c, c̃, ε, order = (csts.α, csts.k, csts.c, csts.c̃, csts.ε, csts.order)
+    α, c, c̃, ε, order = (csts.α, csts.c, csts.c̃, csts.ε, csts.order)
     c₁, c₂ = (c, (c + c̃) / 2)
 
     type_α = typeof(α)

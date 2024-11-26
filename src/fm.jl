@@ -8,6 +8,10 @@ function Ψ₁₁(x, x_norm, cache::IntegrationCache)
     return x[1] / x_norm^2 * Yε_2nd_der(x_norm, cache) - x[1] / x_norm^3 * Yε_1st_der(x_norm, cache)
 end
 
+function Ψ₂₁(x, x_norm, cache::IntegrationCache)
+    return x[2] / x_norm^2 * Yε_2nd_der(x_norm, cache) - x[2] / x_norm^3 * Yε_1st_der(x_norm, cache)
+end
+
 integrand_fourier_fft_1D(x, βⱼ, cache) = exp(im * βⱼ * x) * χ_der(x, cache)
 
 f₀_F̂ⱼ(x, cache::IntegrationCache) = x * log(x) * Yε(x, cache)

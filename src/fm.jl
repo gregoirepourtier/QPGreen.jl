@@ -4,12 +4,21 @@ function Φ₁(x, cache::IntegrationCache)
     return (2 + log(x)) * Yε_1st_der(x, cache) / x + Yε_2nd_der(x, cache) * log(x)
 end
 
-function Ψ₁₁(x, x_norm, cache::IntegrationCache)
-    return x[1] / x_norm^2 * Yε_2nd_der(x_norm, cache) - x[1] / x_norm^3 * Yε_1st_der(x_norm, cache)
+function ρₓ(x, x_norm, cache::IntegrationCache)
+    return log(x_norm) * Yε_1st_der(x_norm, cache) * x[1]^2 / x_norm
 end
 
-function Ψ₂₁(x, x_norm, cache::IntegrationCache)
-    return x[2] / x_norm^2 * Yε_2nd_der(x_norm, cache) - x[2] / x_norm^3 * Yε_1st_der(x_norm, cache)
+function h₁_reduced(x, x_norm, α, cache::IntegrationCache)
+    first_term = log(x_norm) * Yε_1st_der(x_norm, cache) * x[1] / x_norm
+    third_term = log(x_norm) * Yε_1st_der(x_norm, cache) * x[1]^3 / x_norm
+    return first_term - α^2 / 2 * third_term
+end
+
+function h₂_reduced(x, x_norm, α, cache::IntegrationCache)
+    first_term = log(x_norm) * Yε_1st_der(x_norm, cache) * x[2] / x_norm
+    second_term = log(x_norm) * Yε_1st_der(x_norm, cache) * x[1] * x[2] / x_norm
+    third_term = log(x_norm) * Yε_1st_der(x_norm, cache) * x[1]^2 * x[2] / x_norm
+    return first_term - im * α * second_term - α^2 / 2 * third_term
 end
 
 integrand_fourier_fft_1D(x, βⱼ, cache) = exp(im * βⱼ * x) * χ_der(x, cache)
@@ -60,7 +69,7 @@ function get_K̂ⱼ!(K̂ⱼ, csts, N, i, fft_cache::FFT_cache{T}, cache::Integra
 end
 
 """
-    get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, cache, type_α)
+    get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, F̂₁ⱼ₀, type_α)
 
 Calculate the Fourier coefficients F̂ⱼ.
 Input arguments:
@@ -70,23 +79,78 @@ Input arguments:
   - c̃: parameter of the periodicity
   - Φ̂₁ⱼ: Fourier coefficients of the function Φ₁
   - Φ̂₂ⱼ: Fourier coefficients of the function Φ₂
-  - cache: cache for the cut-off function Yε
+  - F̂₁ⱼ₀: Fourier coefficient of the function F₁ at |j| = 0
   - type_α: type of the parameter α
 
 Returns the Fourier coefficients F̂ⱼ.
 """
-function get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, cache::IntegrationCache, ::Type{type_α}) where {type_α}
+function get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, F̂₁ⱼ₀::Complex{type_α}, ::Type{type_α}) where {type_α}
     if (j₁^2 + j₂^2) ≠ 0
         cst = j₁^2 + j₂^2 * π^2 / c̃^2
         F̂₁ⱼ = 1 / cst * (1 / (2 * √(π * c̃)) + 1 / (2 * π) * Φ̂₁ⱼ)
         F̂₂ⱼ = 1 / cst * (-2 * im * j₁ * F̂₁ⱼ + 1 / (2 * π) * Φ̂₂ⱼ)
     else # special case |j| = 0
-        integral = quadgk(x -> f₀_F̂ⱼ(x, cache), 0.0, cache.params.b)[1]
-
-        F̂₁ⱼ = Complex{type_α}(-1 / (2 * √(π * c̃)) * integral)::Complex{type_α}
+        F̂₁ⱼ = F̂₁ⱼ₀
         F̂₂ⱼ = zero(Complex{type_α})
     end
     return F̂₁ⱼ, F̂₂ⱼ
+end
+
+"""
+    get_Ĥⱼ(j₁, j₂, csts, F̂₁ⱼ, F̂₂ⱼ, ρ̂ₓⱼ, Φ̂₃ⱼ, ĥ₁ⱼ, ĥ₂ⱼ, Ĥ₁ⱼ₀, type_α)
+
+Calculate the Fourier coefficients Ĥⱼ.
+Input arguments:
+
+    - j₁: first index
+    - j₂: second index
+    - csts: Named tuple of the constants for the problem definition
+    - F̂₁ⱼ: Fourier coefficients of the function F₁
+    - F̂₂ⱼ: Fourier coefficients of the function F₂
+    - ρ̂ₓⱼ: Fourier coefficients of the function ρₓ
+    - Φ̂₃ⱼ: Fourier coefficients of the function Φ₃
+    - ĥ₁ⱼ: Fourier coefficients of the function h₁_reduced
+    - ĥ₂ⱼ: Fourier coefficients of the function h₂_reduced
+    - Ĥ₁ⱼ₀: Fourier coefficient of the function H₁ at |j| = 0
+    - type_α: type of the parameter α
+
+Returns the Fourier coefficients Ĥⱼ.
+"""
+function get_Ĥⱼ(j₁, j₂, csts::NamedTuple, F̂₁ⱼ, F̂₂ⱼ, ρ̂ₓⱼ, Φ̂₃ⱼ, ĥ₁ⱼ, ĥ₂ⱼ, Ĥ₁ⱼ₀::Complex{type_α},
+                 ::Type{type_α}) where {type_α}
+
+    c̃, k, α = (csts.c̃, csts.k, csts.α)
+
+    if (j₁^2 + j₂^2) ≠ 0
+        cst = 1 / (j₁^2 + j₂^2 * π^2 / c̃^2)
+
+        j₁_F̂₂ⱼ = im * j₁ * F̂₂ⱼ
+        qt2 = j₁_F̂₂ⱼ - F̂₁ⱼ + 1 / (2 * π) * ρ̂ₓⱼ
+
+        main_fft_coeff = cst * (-2 * j₁_F̂₂ⱼ -
+                                2 * qt2 +
+                                1 / π * ρ̂ₓⱼ +
+                                1 / (2 * π) * Φ̂₃ⱼ)
+
+        Ĥ₁ⱼ = -k^2 / 2 * F̂₂ⱼ +
+               im * j₁ * F̂₁ⱼ -
+               im * α * qt2 -
+               α^2 / 2 * (im * j₁ * main_fft_coeff - 2 * F̂₂ⱼ) +
+               1 / (2 * π) * ĥ₁ⱼ
+
+
+        Ĥ₂ⱼ = -k^2 / 2 * F̂₂ⱼ +
+               im * (π / c̃) * j₂ * F̂₁ⱼ +
+               α * (π / c̃) * j₂ * F̂₂ⱼ -
+               α^2 / 2 * im * (π / c̃) * j₂ * main_fft_coeff +
+               1 / (2 * π) * ĥ₂ⱼ
+
+    else # special case |j| = 0
+        Ĥ₁ⱼ = Ĥ₁ⱼ₀
+        Ĥ₂ⱼ = zero(Complex{type_α})
+    end
+
+    return Ĥ₁ⱼ, Ĥ₂ⱼ
 end
 
 """

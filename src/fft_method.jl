@@ -39,7 +39,7 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
     evaluation_Φ₁ = Matrix{type_α}(undef, N, N)
     evaluation_Φ₂ = Matrix{type_α}(undef, N, N)
 
-    for i ∈ eachindex(xx)
+    @inbounds @batch for i ∈ eachindex(xx)
         for j ∈ eachindex(yy)
             x = xx[i]
             y = yy[j]
@@ -61,7 +61,10 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
 
     p = plan_fft!(fft_cache.shift_sample_eval_int) # ; flags=FFTW.ESTIMATE, timelimit=Inf)
 
-    for i ∈ 1:N
+    integral_F̂ⱼ₀ = quadgk(x -> f₀_F̂ⱼ(x, cache_Yε), 0.0, cache_Yε.params.b)[1]
+    F̂ⱼ₀ = Complex{type_α}(-1 / (2 * √(π * c̃)) * integral_F̂ⱼ₀)::Complex{type_α}
+
+    @inbounds for i ∈ 1:N
         # a) Calculate Fourier Coefficients K̂ⱼ (using FFT to compute Fourier integrals)
         @views get_K̂ⱼ!(K̂ⱼ[:, i], csts, N, i, fft_cache, cache_χ, p)
         j₁ = fft_cache.j_idx[i]
@@ -71,14 +74,14 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
             idx_fft_row = N - i + 2
             for j ∈ 1:N
                 j₂ = fft_cache.j_idx[j]
-                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], Φ̂₂ⱼ[idx_fft_row, j], cache_Yε, type_α)
+                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], Φ̂₂ⱼ[idx_fft_row, j], F̂ⱼ₀, type_α)
                 L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ⱼ + im * α * F̂₂ⱼ
             end
         else
             idx_fft_row = i
             for j ∈ 1:N
                 j₂ = fft_cache.j_idx[j]
-                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], conj(Φ̂₂ⱼ[idx_fft_row, j]), cache_Yε, type_α)
+                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], conj(Φ̂₂ⱼ[idx_fft_row, j]), F̂ⱼ₀, type_α)
                 L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ⱼ + im * α * F̂₂ⱼ
             end
         end
@@ -90,19 +93,18 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
     interp_cubic = cubic_spline_interpolation((xx, yy), Lₙ)
     # interp_cubic = linear_interpolation((xx, yy), Lₙ; extrapolation_bc=Line()) # More efficient but less accurate
 
-    return Lₙ, interp_cubic, cache_Yε
+    return interp_cubic, cache_Yε
 end
 
 
 """
-    fm_method_calculation(x, csts, Lₙ, interp_cubic; nb_terms=100)
+    fm_method_calculation(x, csts, interp_cubic, cache_Yε; nb_terms=100)
 
 Calculation step of the FFT-based algorithm.
 Input arguments:
 
   - x: given as a 2D array
   - csts: tuple of the constants (α, k, c, c̃, ε, order)
-  - Lₙ: values of Lₙ at the grid points
   - interp_cubic: bicubic interpolation function
   - cache_Yε: cache for the cut-off function Yε
 
@@ -112,12 +114,9 @@ Keyword arguments:
 
 Returns the approximate value of the Green's function G(x).
 """
-function fm_method_calculation(x, csts::NamedTuple, Lₙ, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=100) where {T}
+function fm_method_calculation(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=100) where {T}
 
     α, c = (csts.α, csts.c)
-    N, M = size(Lₙ)
-
-    @assert N==M "Problem dimensions"
 
     if abs(x[2]) > c
         return eigfunc_expansion(x, csts; nb_terms=nb_terms)

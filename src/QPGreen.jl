@@ -6,6 +6,7 @@ using QuadGK
 using Interpolations
 
 using DocStringExtensions
+using Polyester
 
 import SpecialFunctions
 import Bessels

@@ -38,40 +38,6 @@ function analytical_derivative(z, csts::NamedTuple; period=2π, nb_terms=100)
     return G_prime_x1, G_prime_x2
 end
 
-
-"""
-    get_Ĥⱼ(j₁, j₂, csts, F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃, ..., cache, type_α)
-
-Calculate the Fourier coefficients Ĥⱼ.
-"""
-function get_Ĥⱼ(j₁, j₂, csts::NamedTuple,
-                 F̂₂ⱼ, Ψ̂₁ⱼ₁, Ψ̂₁ⱼ₂, Ψ̂₁ⱼ₃,
-                 Ψ̂₂ⱼ₁, Ψ̂₂ⱼ₂, Ψ̂₂ⱼ₃,
-                 cache::IntegrationCache, ::Type{type_α}) where {type_α}
-
-    c̃, k, α = (csts.c̃, csts.k, csts.α)
-
-    if (j₁^2 + j₂^2) ≠ 0
-        cst = 1 / (j₁^2 + j₂^2 * π^2 / c̃^2)
-        Λ̂₁ⱼ = cst * (1 / (2 * π) * Ψ̂₁ⱼ₁ + im * j₁ / (4 * √(π * c̃)))
-        Λ̂₂ⱼ = cst * (-2 * im * j₁ * Λ̂₁ⱼ + 1 / (2 * π) * Ψ̂₁ⱼ₂)
-        Λ̂₃ⱼ = cst * (-2 * im * j₁ * Λ̂₂ⱼ + 1 / (2 * π) * Ψ̂₁ⱼ₃)
-        Ĥ₁ⱼ = -k^2 / 2 * F̂₂ⱼ + Λ̂₁ⱼ - im * α * Λ̂₂ⱼ - α^2 / 2 * Λ̂₃ⱼ
-
-        Γ̂₁ⱼ = cst * (1 / (2 * π) * Ψ̂₂ⱼ₁ + im * j₂ * π / (4 * c̃ * √(π * c̃)))
-        Γ̂₂ⱼ = cst * (-2 * im * j₁ * Γ̂₁ⱼ + 1 / (2 * π) * Ψ̂₂ⱼ₂)
-        Γ̂₃ⱼ = cst * (-2 * im * j₁ * Γ̂₂ⱼ + 1 / (2 * π) * Ψ̂₂ⱼ₃)
-        Ĥ₂ⱼ = -k^2 / 2 * F̂₂ⱼ + Γ̂₁ⱼ - im * α * Γ̂₂ⱼ - α^2 / 2 * Γ̂₃ⱼ
-    else # special case |j| = 0 
-        integral = quadgk(x -> f₀_Ĥⱼ(x, cache), 0.0, cache.params.b)[1]
-
-        Ĥ₁ⱼ = im * α / (4 * √(π * c̃)) * integral
-        Ĥ₂ⱼ = zero(Complex{type_α})
-    end
-
-    return Ĥ₁ⱼ, Ĥ₂ⱼ
-end
-
 """
     fm_method_preparation_derivative(csts, grid_size)
 
@@ -79,7 +45,7 @@ Preparation of the Fourier coefficients for the first order derivative of the Gr
 """
 function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
 
-    α, k, c, c̃, ε, order = (csts.α, csts.k, csts.c, csts.c̃, csts.ε, csts.order)
+    α, c, c̃, ε, order = (csts.α, csts.c, csts.c̃, csts.ε, csts.order)
     c₁, c₂ = (c, (c + c̃) / 2)
 
     type_α = typeof(α)
@@ -105,72 +71,67 @@ function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
 
     evaluation_Φ₁ = Matrix{type_α}(undef, N, N)
     evaluation_Φ₂ = Matrix{type_α}(undef, N, N)
+    evaluation_Φ₃ = Matrix{type_α}(undef, N, N)
 
-    evaluation_Ψ₁₁ = Matrix{type_α}(undef, N, N)
-    evaluation_Ψ₁₂ = Matrix{type_α}(undef, N, N)
-    evaluation_Ψ₁₃ = Matrix{type_α}(undef, N, N)
+    evaluation_h₁_reduced = Matrix{type_α}(undef, N, N)
+    evaluation_h₂_reduced = Matrix{Complex{type_α}}(undef, N, N)
+    evaluation_ρₓ = Matrix{type_α}(undef, N, N)
 
-    evaluation_Ψ₂₁ = Matrix{type_α}(undef, N, N)
-    evaluation_Ψ₂₂ = Matrix{type_α}(undef, N, N)
-    evaluation_Ψ₂₃ = Matrix{type_α}(undef, N, N)
-
-    for i ∈ eachindex(xx)
+    @inbounds @batch for i ∈ eachindex(xx)
         for j ∈ eachindex(yy)
             x = xx[i]
             y = yy[j]
-            evaluation_Φ₁[i, j] = norm((x, y)) != 0.0 ? Φ₁(norm((x, y)), cache_Yε) : zero(type_α)
-            evaluation_Ψ₁₁[i, j] = norm((x, y)) != 0.0 ? Ψ₁₁((x, y), norm((x, y)), cache_Yε) : zero(type_α)
-            evaluation_Ψ₂₁[i, j] = norm((x, y)) != 0.0 ? Ψ₂₁((x, y), norm((x, y)), cache_Yε) : zero(type_α)
+            eval_norm = norm((x, y))
+
+            evaluation_Φ₁[i, j] = eval_norm != 0.0 ? Φ₁(eval_norm, cache_Yε) : zero(type_α)
+            evaluation_h₁_reduced[i, j] = eval_norm != 0.0 ? h₁_reduced((x, y), eval_norm, α, cache_Yε) : zero(type_α)
+            evaluation_h₂_reduced[i, j] = eval_norm != 0.0 ? h₂_reduced((x, y), eval_norm, α, cache_Yε) : zero(type_α)
+            evaluation_ρₓ[i, j] = eval_norm != 0.0 ? ρₓ((x, y), eval_norm, cache_Yε) : zero(type_α)
         end
     end
+
     evaluation_Φ₂ .= xx .* evaluation_Φ₁
-
-    evaluation_Ψ₁₂ .= xx .* evaluation_Ψ₁₁
-    evaluation_Ψ₁₃ .= xx .* evaluation_Ψ₁₂
-
-    evaluation_Ψ₂₂ .= xx .* evaluation_Ψ₂₁
-    evaluation_Ψ₂₃ .= xx .* evaluation_Ψ₂₂
+    evaluation_Φ₃ .= xx .* evaluation_Φ₂
 
     Φ̂₁ⱼ = Matrix{Complex{type_α}}(undef, N, N)
     Φ̂₂ⱼ = Matrix{Complex{type_α}}(undef, N, N)
+    Φ̂₃ⱼ = Matrix{Complex{type_α}}(undef, N, N)
 
-    Ψ̂₁ⱼ₁ = Matrix{Complex{type_α}}(undef, N, N)
-    Ψ̂₁ⱼ₂ = Matrix{Complex{type_α}}(undef, N, N)
-    Ψ̂₁ⱼ₃ = Matrix{Complex{type_α}}(undef, N, N)
+    ĥ₁ⱼ = Matrix{Complex{type_α}}(undef, N, N)
+    ĥ₂ⱼ = Matrix{Complex{type_α}}(undef, N, N)
 
-    Ψ̂₂ⱼ₁ = Matrix{Complex{type_α}}(undef, N, N)
-    Ψ̂₂ⱼ₂ = Matrix{Complex{type_α}}(undef, N, N)
-    Ψ̂₂ⱼ₃ = Matrix{Complex{type_α}}(undef, N, N)
+    ρ̂ₓⱼ = Matrix{Complex{type_α}}(undef, N, N)
 
     Φ̂₁ⱼ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Φ₁)))
     Φ̂₂ⱼ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Φ₂)))
+    Φ̂₃ⱼ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Φ₃)))
 
-    Ψ̂₁ⱼ₁ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Ψ₁₁)))
-    Ψ̂₁ⱼ₂ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Ψ₁₂)))
-    Ψ̂₁ⱼ₃ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Ψ₁₃)))
+    ĥ₁ⱼ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_h₁_reduced)))
+    ĥ₂ⱼ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_h₂_reduced)))
 
-    Ψ̂₂ⱼ₁ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Ψ₂₁)))
-    Ψ̂₂ⱼ₂ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Ψ₂₂)))
-    Ψ̂₂ⱼ₃ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_Ψ₂₃)))
+    ρ̂ₓⱼ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(evaluation_ρₓ)))
 
     p = plan_fft!(fft_cache.shift_sample_eval_int)
 
-    for i ∈ 1:N
+    # Precompute the integrals for |j| = 0
+    integral_F̂₁ⱼ₀ = quadgk(x -> f₀_F̂ⱼ(x, cache_Yε), 0.0, params_Yε.b)[1]
+    F̂₁ⱼ₀ = Complex{type_α}(-1 / (2 * √(π * c̃)) * integral_F̂₁ⱼ₀)::Complex{type_α}
+
+    integral_Ĥ₁ⱼ₀ = quadgk(x -> f₀_Ĥⱼ(x, cache_Yε), 0.0, params_Yε.b)[1]
+    Ĥ₁ⱼ₀ = im * α / (4 * √(π * c̃)) * integral_Ĥ₁ⱼ₀
+
+    @inbounds for i ∈ eachindex(xx)
         # a) Calculate Fourier Coefficients K̂ⱼ (using FFT to compute Fourier integrals)
         @views get_K̂ⱼ!(K̂ⱼ[:, i], csts, N, i, fft_cache, cache_χ, p)
         j₁ = fft_cache.j_idx[i]
 
-        for j ∈ 1:N
+        @inbounds @batch for j ∈ eachindex(yy)
             j₂ = fft_cache.j_idx[j]
             # b) Calculate Fourier Coefficients L̂ⱼ
-            F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[i, j], Φ̂₂ⱼ[i, j], cache_Yε, type_α)
-            Ĥ₁ⱼ, Ĥ₂ⱼ = get_Ĥⱼ(j₁, j₂, csts,
-                                 F̂₂ⱼ, Ψ̂₁ⱼ₁[i, j], Ψ̂₁ⱼ₂[i, j], Ψ̂₁ⱼ₃[i, j],
-                                 Ψ̂₂ⱼ₁[i, j], Ψ̂₂ⱼ₂[i, j], Ψ̂₂ⱼ₃[i, j],
-                                 cache_Yε, type_α)
+            F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[i, j], Φ̂₂ⱼ[i, j], F̂₁ⱼ₀, type_α)
+            Ĥ₁ⱼ, Ĥ₂ⱼ = get_Ĥⱼ(j₁, j₂, csts, F̂₁ⱼ, F̂₂ⱼ, ρ̂ₓⱼ[i, j], Φ̂₃ⱼ[i, j], ĥ₁ⱼ[i, j], ĥ₂ⱼ[i, j], Ĥ₁ⱼ₀, type_α)
             L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - Ĥ₁ⱼ
             L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - Ĥ₂ⱼ
-            # L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ⱼ + im * α * F̂₂ⱼ
         end
     end
 
@@ -182,17 +143,14 @@ function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
     interp_cubic_2 = cubic_spline_interpolation((xx, yy), Lₙ₂)
     # interp_cubic = linear_interpolation((xx, yy), Lₙ; extrapolation_bc=Line()) # More efficient but less accurate
 
-    return Lₙ₁, interp_cubic_1, interp_cubic_2, cache_Yε
+    return interp_cubic_1, interp_cubic_2, cache_Yε
 end
 
-function fm_method_calculation_derivative(x, csts::NamedTuple, Lₙ, interp_cubic_x1::T1, interp_cubic_x2::T2,
-                                          cache_Yε::IntegrationCache;
-                                          nb_terms=100) where {T1, T2}
+
+function fm_method_calculation_derivative(x, csts::NamedTuple, interp_cubic_x1::T1, interp_cubic_x2::T2,
+                                          cache_Yε::IntegrationCache; nb_terms=100) where {T1, T2}
 
     α, c = (csts.α, csts.c)
-    N, M = size(Lₙ)
-
-    @assert N==M "Problem dimensions"
 
     if abs(x[2]) > c
         return analytical_derivative(x, csts; nb_terms=nb_terms)
@@ -206,8 +164,6 @@ function fm_method_calculation_derivative(x, csts::NamedTuple, Lₙ, interp_cubi
         # Get K(t, x₂)
         K₁_t_x₂ = Lₙ₁_t_x₂ + h₁((t, x[2]), csts, cache_Yε)
         K₂_t_x₂ = Lₙ₂_t_x₂ + h₂((t, x[2]), csts, cache_Yε)
-
-        # K₁_t_x₂ = Lₙ_t_x₂ + f₁((t, x[2]), cache_Yε) - im * α * f₂((t, x[2]), cache_Yε)
 
         # Calculate the approximate value of G(x)
         der_G_x₁ = exp(im * α * x[1]) * K₁_t_x₂

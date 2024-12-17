@@ -89,4 +89,5 @@ makedocs(;
 
 deploydocs(;
            repo="github.com/gregoirepourtier/QPGreen.jl",
-           devbranch="main",)
+           devbranch="main",
+           push_preview=true)

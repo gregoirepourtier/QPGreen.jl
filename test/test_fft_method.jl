@@ -9,13 +9,13 @@ function QPGreenFunction_eval(params, points, idx, tol; verbose=false)
 
     grid_sizes = [2^i for i ∈ idx]
     for grid_size ∈ grid_sizes
-        preparation_result, interp, cache = fm_method_preparation(params, grid_size)
+        interp, cache = fm_method_preparation(params, grid_size)
 
         if verbose
             println("Grid size: ", grid_size)
         end
         for i ∈ 1:4
-            G_x = fm_method_calculation([P1, P2, P3, P4][i], params, preparation_result, interp, cache; nb_terms=1_000_000)
+            G_x = fm_method_calculation([P1, P2, P3, P4][i], params, interp, cache; nb_terms=1_000_000)
             res_eig = vals_expansions[i]
             @test abs(res_eig - G_x) < tol
             if verbose

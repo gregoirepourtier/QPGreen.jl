@@ -1,26 +1,60 @@
 using Test
 using QPGreen
-# using Printf, LinearAlgebra
-# using BenchmarkTools: @btime
+using Printf
 
-@test 1 == 1
+function QPGreenFunction_eval(params, points, idx, tol; verbose=false)
+    P1, P2, P3, P4 = points
 
-## Write some tests for the FFT method
+    vals_expansions = eigfunc_expansion.([P1, P2, P3, P4], Ref(params); nb_terms=100_000_000)
 
-Z = (0.002π, 0.0);
-params = (α=0.3, k=1.0, c=0.6, c̃=1.0, ε=0.4341, order=8);
+    grid_sizes = [2^i for i ∈ idx]
+    for grid_size ∈ grid_sizes
+        interp, cache = fm_method_preparation(params, grid_size)
 
-res_eig = eigfunc_expansion(Z, params.k, params.α; nb_terms=10000);
-res_img = image_expansion(Z, params.k, params.α; nb_terms=200000);
+        if verbose
+            println("Grid size: ", grid_size)
+        end
+        for i ∈ 1:4
+            G_x = fm_method_calculation([P1, P2, P3, P4][i], params, interp, cache; nb_terms=1_000_000)
+            res_eig = vals_expansions[i]
+            @test abs(res_eig - G_x) < tol
+            if verbose
+                str_err = @sprintf "%.2E" abs(G_x - res_eig)/abs(res_eig)
+                println("Point P", i, " and res: ", G_x, " and error: ", str_err)
+            end
+        end
+        if verbose
+            println(" ")
+        end
+    end
+end
 
-# grid_size = 5;
-# preparation_result, interp, cache = fm_method_preparation(params, grid_size);
-# fm_method_calculation(Z, params, preparation_result, interp, cache; nb_terms=32);
+@testset "Paper FFT-based algorithm, B. Zhang and R. Zhang" begin
 
-# res_eig = 0.7685069487 + 0.1952423542im
-# @time for i ∈ [32, 64, 128, 256, 512, 1024]
-#     preparation_result, interp, cache = QPGreen.fm_method_preparation(params, i)
-#     res_fm = QPGreen.fm_method_calculation(Z, params, preparation_result, interp, cache; nb_terms=32)
-#     str_err = @sprintf "%.2E" abs(res_fm - res_eig)/abs(res_eig)
-#     println("Grid size: ", i, " and res: ", res_fm, " and error: ", str_err)
-# end
+    P1 = (0.01π, 0.0)
+    P2 = (0.01π, 0.01)
+    P3 = (0.5π, 0.0)
+    P4 = (0.5π, 0.01)
+    points = [P1, P2, P3, P4]
+
+    # Refer to Table 1
+    params = (α=0.3, k=√10, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    QPGreenFunction_eval(params, points, 5:10, 1e-3; verbose=false)
+
+    # Refer to Table 2
+    params = (α=0.3, k=5, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    QPGreenFunction_eval(params, points, 5:10, 1e-3; verbose=false)
+
+    # Refer to Table 3
+    params = (α=√2, k=50, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    QPGreenFunction_eval(params, points, 7:10, 1e-2; verbose=false)
+
+    # Refer to Table 4
+    params = (α=-√2, k=100, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    QPGreenFunction_eval(params, points, 8:10, 1e-2; verbose=false)
+end
+
+@testset "Paper Green's function for the 2D Helmholtz equation in periodic domains, C.M Linton" begin
+    P1 = (0.01π, 0.0)
+
+end

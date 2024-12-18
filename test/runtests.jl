@@ -10,7 +10,7 @@ end
 end
 
 @testset "FFT based algorithm" begin
-    include("test_fft_method.jl")
+    include("test_fft_method_eval.jl")
 end
 
 @testset "Lattice Sums" begin

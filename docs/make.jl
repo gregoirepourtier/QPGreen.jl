@@ -11,8 +11,7 @@ makedocs(;
          sitename="QPGreen.jl",
          format=Documenter.HTML(;
                                 canonical="https://gregoirepourtier.github.io/QPGreen.jl",
-                                edit_link="main",
-                                assets=String[],),
+                                mathengine=MathJax3(),),
          pages=["Home" => "index.md",
              "Examples" => "examples.md",
              "References" => "references.md",

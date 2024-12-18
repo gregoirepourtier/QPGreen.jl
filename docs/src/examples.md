@@ -7,7 +7,7 @@ CurrentModule = QPGreen
 We show here some examples on how to compute efficiently Quasi-periodic Green Functions and its first derivatives for the 2D Helmholtz equation. The main focus is on the FFT-based algorithm, but we also provide examples for the lattice sums and Ewald summation algorithms.
 
 # Example 1: FFT-based algorithm
-The first example is concerned with computing the quasi-periodic Green function for the 2D Helmholtz equation using the FFT-based algorithm (based on the article [Zhang2018](@cite)).
+The first example is concerned with computing the quasi-periodic Green function for the 2D Helmholtz equation using the **FFT-based algorithm** (based on the article [Zhang2018](@cite)).
 
 First, load the package, using the following command:
 ```@example FFT_based_algorithm
@@ -35,6 +35,7 @@ We set the grid size that is used to generate the 2D tensor product mesh (adjust
 ```@example FFT_based_algorithm
 # Size of the Grid
 grid_size = 128
+nothing # hide
 ```
 
 This method relies on two steps: a **preparation** step and an **evaluation** step. 
@@ -43,7 +44,7 @@ This method relies on two steps: a **preparation** step and an **evaluation** st
 The preparation step, which is independent of the function evaluation at a point, computes various Fourier coefficients and returns an Extrapolation object along with a cache containing integral approximations. Note that you only need to perform the preparation step once for a given set of parameters and grid size.
 ```@example FFT_based_algorithm
 # Preparation Step
-interpolation, cache = fm_method_preparation(params, grid_size);
+interpolation, cache = fm_method_preparation(params, grid_size)
 ```
 
 ### Evaluation step
@@ -52,6 +53,7 @@ The evaluation step is used to compute the Green function for any given point in
 # Evaluation Step for any points
 Z = (0.002π, 0.01)
 eval_Green_function = fm_method_calculation(Z, params, interpolation, cache; nb_terms=32)
+@show "The value of the Green function at the point $(Z) is: $(eval_Green_function)"
 ```
 Note here that the keyword argument `nb_terms` is used to control the number of terms in the eigenfunction expansion (in the case where the FFT-based algorithm is not used).
 
@@ -85,11 +87,9 @@ using QPGreen
 
 Then initialize the different parameters, as a NamedTuple, that define your problems. We have
 ```@example Lattice_sums_algorithm
-β, k, d, M, L = (√2 / (2 * π), 2 / (2 * π), 2 * π, 80, 4)
 X, Y = (0.0, 0.01 * 2π)
-# Take the cylindrical polar coordinates
-r, θ = (√(X^2 + Y^2), atan(Y, X))
 
+β, k, d, M, L = (√2 / (2 * π), 1 / π, 2 * π, 80, 4)
 csts = (β, k, d, M, L)
 
 Sl = QPGreen.lattice_sums_preparation(csts);
@@ -113,7 +113,8 @@ using QPGreen
 Then initialize the different parameters, as a NamedTuple, that define your problems. We have
 ```@example Ewald_algorithm
 (X, Y) = (0.0, 0.01 * 2π)
-a, M₁, M₂, N, β, k, d = (2, 3, 2, 7, √2 / (2 * π), 2 / (2 * π), 2 * π)
+
+a, M₁, M₂, N, β, k, d = (2, 3, 2, 7, √2 / (2 * π), 1 / π, 2 * π)
 csts = (a, M₁, M₂, N, β, k, d)
 
 res_ewald = QPGreen.ewald([X, Y], csts)

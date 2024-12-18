@@ -63,7 +63,7 @@ end
     P1 = (0.0, 0.01 * 2π)
     point = [P1]
 
-    verbose = true
+    verbose = false
 
     # Refer to Table 2
     verbose ? println("========= Table 2 ==========") : nothing

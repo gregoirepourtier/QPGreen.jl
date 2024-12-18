@@ -12,7 +12,7 @@ import SpecialFunctions
 import Bessels
 
 include("expansions.jl")
-export image_expansion, eigfunc_expansion
+export image_expansion, eigfunc_expansion, eigfunc_expansion_derivative
 
 include("fft_caches.jl")
 
@@ -27,7 +27,7 @@ include("cutoff_functions.jl")
 include("fft_helpers.jl")
 
 include("fft_gradient.jl")
-export analytical_derivative, fm_method_preparation_derivative, fm_method_calculation_derivative
+export fm_method_preparation_derivative, fm_method_calculation_derivative
 
 
 

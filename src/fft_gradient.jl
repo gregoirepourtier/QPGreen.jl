@@ -103,7 +103,7 @@ function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
     # Create the Bicubic Interpolation function
     interp_cubic_1 = cubic_spline_interpolation((xx, yy), Lₙ₁)
     interp_cubic_2 = cubic_spline_interpolation((xx, yy), Lₙ₂)
-    # interp_cubic = linear_interpolation((xx, yy), Lₙ; extrapolation_bc=Line()) # More efficient but less accurate
+    # interp_cubic = linear_interpolation((xx, yy), Lₙ; extrapolation_bc=Line()) # More efficient but less accurate?
 
     return interp_cubic_1, interp_cubic_2, cache_Yε
 end

@@ -1,4 +1,4 @@
-#%% Formulas for α-quasi-periodic Green function for the 2D Helmholtz equation (basic image and eigenfunction expansions)
+# Formulas for α-quasi-periodic Green function for the 2D Helmholtz equation (basic image and eigenfunction expansions)
 
 """
     image_expansion(z, csts; period=2π, nb_terms=100)
@@ -62,12 +62,7 @@ Input arguments:
   - z: 2D point at which the derivative is evaluated
   - csts: Named tuple of the constants for the problem definition
 
-Keyword arguments:
-
-  - period: period of the Green's function
-  - nb_terms: number of terms in the series expansion
-
-Returns the value of the derivative of the Green's function.
+Returns the value of the derivative of the α-quasi-periodic Green function for 2D Helmholtz equation at the point z.
 """
 function eigfunc_expansion_derivative(z, csts::NamedTuple; period=2π, nb_terms=100)
 

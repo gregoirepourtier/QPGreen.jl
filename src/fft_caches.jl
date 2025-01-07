@@ -71,23 +71,27 @@ struct FFT_cache{T1 <: Real, T2 <: Real, T3 <: Integer}
     t_j_fft::Vector{T2}
 
     """
-    Evaluation of the Fourier integrals
+    Evaluation of the integrand 
     """
     eval_int_fft_1D::Vector{Complex{T1}}
 
     """
+    Shifted Evaluations of the integrand
     """
     shift_sample_eval_int::Vector{Complex{T1}}
 
     """
+    Evaluation of the Fourier integral
     """
     fft_eval::Vector{Complex{T1}}
 
     """
+    Shifted evaluation of the Fourier integral
     """
     shift_fft_1d::Vector{Complex{T1}}
 
     """
+    Flipped evaluation of the Fourier integral
     """
     fft_eval_flipped::Transpose{Complex{T1}, Vector{Complex{T1}}}
 end

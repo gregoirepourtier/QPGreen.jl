@@ -21,7 +21,7 @@ include("other_methods/ewald.jl")
 include("fft_eval.jl")
 export fm_method_preparation, fm_method_calculation
 
-include("other_methods/api.jl")
+# include("other_methods/api.jl")
 
 include("cutoff_functions.jl")
 include("fft_helpers.jl")

@@ -11,16 +11,15 @@ defined by the basic image expansion.
 """
 function image_expansion(z, csts::NamedTuple; period=2π, nb_terms=100)
 
-    G = zero(Complex{eltype(z)})
-
     α, k = (csts.α, csts.k)
 
-    range_term = nb_terms ÷ 2
-
     # Compute the value of the Green function by basic image expansion
-    for n ∈ (-range_term):range_term
+    G = im / 4 * Bessels.hankelh1(0, k * √(z[1]^2 + z[2]^2))
+    for n ∈ 1:nb_terms
+        r₋ₙ = √((z[1] - period * -n)^2 + z[2]^2)
         rₙ = √((z[1] - period * n)^2 + z[2]^2)
-        G += im / 4 * exp(im * period * α * n) * Bessels.hankelh1(0, k * rₙ)
+        G += im / 4 * exp(im * period * α * -n) * Bessels.hankelh1(0, k * r₋ₙ) +
+             im / 4 * exp(im * period * α * n) * Bessels.hankelh1(0, k * rₙ)
     end
 
     G
@@ -36,18 +35,20 @@ Returns the value of the α-quasi-periodic Green function for 2D Helmholtz equat
 defined by the basic eigenfunction expansion.
 """
 function eigfunc_expansion(z, csts::NamedTuple; period=2π, nb_terms=100)
-
-    G = zero(Complex{eltype(z)})
-
-    range_term = nb_terms ÷ 2
-
     α, k = (csts.α, csts.k)
 
     # Compute the value of the Green function by basic eigenfunction expansion
-    for n ∈ (-range_term):range_term
+    β₀ = abs(α) <= k ? √(k^2 - α^2) : im * √(α^2 - k^2)
+    G = im / (2 * period) * (1 / β₀) * exp(im * α * z[1] + im * β₀ * abs(z[2]))
+    for n ∈ 1:nb_terms
+        α₋ₙ = α - n
         αₙ = α + n
+
+        β₋ₙ = abs(α₋ₙ) <= k ? √(k^2 - α₋ₙ^2) : im * √(α₋ₙ^2 - k^2)
         βₙ = abs(αₙ) <= k ? √(k^2 - αₙ^2) : im * √(αₙ^2 - k^2)
-        G += im / (2 * period) * (1 / βₙ) * exp(im * αₙ * z[1] + im * βₙ * abs(z[2]))
+
+        G += im / (2 * period) * (1 / β₋ₙ) * exp(im * α₋ₙ * z[1] + im * β₋ₙ * abs(z[2])) +
+             im / (2 * period) * (1 / βₙ) * exp(im * αₙ * z[1] + im * βₙ * abs(z[2]))
     end
 
     G
@@ -65,23 +66,26 @@ Input arguments:
 Returns the value of the derivative of the α-quasi-periodic Green function for 2D Helmholtz equation at the point z.
 """
 function eigfunc_expansion_derivative(z, csts::NamedTuple; period=2π, nb_terms=100)
-
-    G_prime_x1 = zero(Complex{eltype(z)})
-    G_prime_x2 = zero(Complex{eltype(z)})
-
-    range_term = nb_terms ÷ 2
-
     α, k = (csts.α, csts.k)
 
     # Compute the value of the derivative of the Green function by basic eigenfunction expansion
-    for n ∈ (-range_term):range_term
+    β₀ = abs(α) <= k ? √(k^2 - α^2) : im * √(α^2 - k^2)
+    G_prime_x1 = im / (2 * period) * im * α / β₀ * exp(im * α * z[1] + im * β₀ * abs(z[2]))
+    G_prime_x2 = im / (2 * period) * im * sign(z[2]) * exp(im * α * z[1] + im * β₀ * abs(z[2]))
+    for n ∈ 1:nb_terms
+        α₋ₙ = α - n
         αₙ = α + n
+
+        β₋ₙ = abs(α₋ₙ) <= k ? √(k^2 - α₋ₙ^2) : im * √(α₋ₙ^2 - k^2)
         βₙ = abs(αₙ) <= k ? √(k^2 - αₙ^2) : im * √(αₙ^2 - k^2)
 
-        exp_term = exp(im * αₙ * z[1] + im * βₙ * abs(z[2]))
-        G_prime_x1 += im / (2 * period) * im * αₙ / βₙ * exp_term
-        G_prime_x2 += im / (2 * period) * im * sign(z[2]) * exp_term
+        exp_term_minus = exp(im * α₋ₙ * z[1] + im * β₋ₙ * abs(z[2]))
+        exp_term_plus = exp(im * αₙ * z[1] + im * βₙ * abs(z[2]))
+
+        G_prime_x1 += im / (2 * period) * im * α₋ₙ / β₋ₙ * exp_term_minus +
+                      im / (2 * period) * im * αₙ / βₙ * exp_term_plus
+        G_prime_x2 += im / (2 * period) * im * sign(z[2]) * (exp_term_minus + exp_term_plus)
     end
 
-    return G_prime_x1, G_prime_x2
+    G_prime_x1, G_prime_x2
 end

@@ -4,7 +4,7 @@ using Printf
 
 function QPGreenFunction_eval(params, points, idx, tol; verbose=false)
 
-    vals_expansions = eigfunc_expansion.(points, Ref(params); nb_terms=100_000_000)
+    vals_expansions = eigfunc_expansion.(points, Ref(params); nb_terms=50_000_000)
 
     grid_sizes = [2^i for i ∈ idx]
     for grid_size ∈ grid_sizes

@@ -12,7 +12,7 @@ import SpecialFunctions
 import Bessels
 
 include("expansions.jl")
-export image_expansion, eigfunc_expansion, eigfunc_expansion_derivative
+export image_expansion, eigfunc_expansion, eigfunc_expansion_derivative, image_expansion_derivative
 
 include("fft_caches.jl")
 

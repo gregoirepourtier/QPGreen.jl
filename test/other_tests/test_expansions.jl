@@ -16,12 +16,18 @@ end
     # Add more tests here
 end
 
+function expansion_derivative_eval_test(z, csts::NamedTuple, tol)
+    G_im_x1, G_im_x2 = image_expansion_derivative(z, csts; period=2π, nb_terms=10_000_000)
+    G_eigfun_x1, G_eigfun_x2 = eigfunc_expansion_derivative(z, csts; period=2π, nb_terms=500_000)
+
+    @test isapprox(G_im_x1, G_eigfun_x1, atol=tol)
+    @test isapprox(G_im_x2, G_eigfun_x2, atol=tol)
+end
+
 @testset "Test suite expansions (gradient)" begin
     z = [1.0, 2.0]
     csts = (k=10.0, α=0.3)
 
-    res1, res2 = eigfunc_expansion_derivative(z, csts; period=2π, nb_terms=500_000)
-    @test isapprox(res1, 0.3771056242536212 + 0.412259643399506im)
-    @test isapprox(res2, 0.3313275794704831 - 0.2308702935192195im)
+    expansion_derivative_eval_test(z, csts, 1e-4)
     # Add more tests here
 end

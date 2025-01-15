@@ -115,7 +115,7 @@ function fm_method_calculation_derivative(x, csts::NamedTuple, interp_cubic_x1::
     α, c = (csts.α, csts.c)
 
     if abs(x[2]) > c
-        return analytical_derivative(x, csts; nb_terms=nb_terms)
+        return eigfunc_expansion_derivative(x, csts; nb_terms=nb_terms)
     else
         t = get_t(x[1])
 

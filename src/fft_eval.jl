@@ -119,6 +119,7 @@ function fm_method_calculation(x, csts::NamedTuple, interp_cubic::T, cache_Yε::
     α, c = (csts.α, csts.c)
 
     if abs(x[2]) > c
+        @info "The point is outside the domain D_c"
         return eigfunc_expansion(x, csts; nb_terms=nb_terms)
     else
         t = get_t(x[1])
@@ -133,5 +134,50 @@ function fm_method_calculation(x, csts::NamedTuple, interp_cubic::T, cache_Yε::
         G_x = exp(im * α * x[1]) * K_t_x₂
 
         return G_x
+    end
+end
+
+"""
+    fm_method_calculation_smooth(x, csts, interp_cubic, cache_Yε; nb_terms=100)
+
+Calculation step of the FFT-based algorithm for the analytic function G_0.
+Input arguments:
+
+  - x: given as a 2D array
+  - csts: tuple of the constants (α, k, c, c̃, ε, order)
+  - interp_cubic: bicubic interpolation function
+  - cache_Yε: cache for the cut-off function Yε
+
+Keyword arguments:
+
+      - nb_terms: number of terms in the series expansion
+
+Returns the approximate value of the Green's function G(x).
+"""
+function fm_method_calculation_smooth(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=100) where {T}
+
+    α, c, k = (csts.α, csts.c, csts.k)
+
+    if abs(x[2]) > c
+        @info "The point is outside the domain D_c"
+        return eigfunc_expansion(x, csts; nb_terms=nb_terms)
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ_t_x₂ = interp_cubic(t, x[2])
+
+        x_norm = norm(x)
+        if x_norm == 0
+            G_0 = Lₙ_t_x₂ - im / 4 * (1 + im * 2 / π * (log(k / 2) + eulergamma))
+        else
+            # Get K(t, x₂)
+            K_t_x₂ = Lₙ_t_x₂ + f₁((t, x[2]), cache_Yε) - im * α * f₂((t, x[2]), cache_Yε)
+
+            # Calculate the approximate value of G(x)
+            G_0 = exp(im * α * x[1]) * K_t_x₂ - im / 4 * Bessels.hankelh1(0, k * norm(x))
+        end
+
+        return G_0
     end
 end

@@ -11,6 +11,8 @@ using Polyester
 import SpecialFunctions
 import Bessels
 
+using .MathConstants: eulergamma
+
 include("expansions.jl")
 export image_expansion, eigfunc_expansion, eigfunc_expansion_derivative, image_expansion_derivative
 

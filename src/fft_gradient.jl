@@ -108,7 +108,25 @@ function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
     return interp_cubic_1, interp_cubic_2, cache_Yε
 end
 
+"""
+    fm_method_calculation_derivative(x, csts, interp_cubic_x1, interp_cubic_x2, cache_Yε; nb_terms=100)
 
+Calculate the first order derivative of the Green's function using the FFT-based method.
+
+Input arguments:
+
+  - `x`: The point at which the Green's function is evaluated.
+  - `csts`: A NamedTuple containing the parameters of the problem.
+  - `interp_cubic_x1`: bicubic interpolation function for the first component of the Green's function.
+  - `interp_cubic_x2`: bicubic interpolation function for the second component of the Green's function.
+  - `cache_Yε`: IntegrationCache for the cutoff functions.
+
+Keyword arguments:
+
+    - `nb_terms`: Number of terms in the series expansion.
+
+Returns the approximate value of the first order derivative of the Green's function at the point `x`.
+"""
 function fm_method_calculation_derivative(x, csts::NamedTuple, interp_cubic_x1::T1, interp_cubic_x2::T2,
                                           cache_Yε::IntegrationCache; nb_terms=100) where {T1, T2}
 
@@ -132,5 +150,56 @@ function fm_method_calculation_derivative(x, csts::NamedTuple, interp_cubic_x1::
         der_G_x₂ = exp(im * α * x[1]) * K₂_t_x₂
 
         return (der_G_x₁, der_G_x₂)
+    end
+end
+
+"""
+    fm_method_calculation_derivative_smooth(x, csts, interp_cubic_x1, interp_cubic_x2, cache_Yε; nb_terms=100)
+
+Calculate the first order derivative of the analytic part of the Green's function using the FFT-based method.
+
+Input arguments:
+
+  - `x`: The point at which the Green's function is evaluated.
+  - `csts`: A NamedTuple containing the parameters of the problem.
+  - `interp_cubic_x1`: bicubic interpolation function for the first component of the Green's function.
+  - `interp_cubic_x2`: bicubic interpolation function for the second component of the Green's function.
+  - `cache_Yε`: IntegrationCache for the cutoff functions.
+
+Keyword arguments:
+
+    - `nb_terms`: Number of terms in the series expansion.
+
+Returns the approximate value of the first order derivative of the analytic part of the Green's function at the point `x`.
+"""
+function fm_method_calculation_derivative_smooth(x, csts::NamedTuple, interp_cubic_x1::T1, interp_cubic_x2::T2,
+                                                 cache_Yε::IntegrationCache; nb_terms=100) where {T1, T2}
+
+    α, c, k = (csts.α, csts.c, csts.k)
+
+    if abs(x[2]) > c
+        @info "The point is outside the domain D_c"
+        return eigfunc_expansion_derivative(x, csts; nb_terms=nb_terms)
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ₁_t_x₂ = interp_cubic_x1(t, x[2])
+        Lₙ₂_t_x₂ = interp_cubic_x2(t, x[2])
+
+        x_norm = norm(x)
+        if x_norm == 0
+            return (Lₙ₁_t_x₂, Lₙ₂_t_x₂)
+        else
+            # Get K(t, x₂)
+            K₁_t_x₂ = Lₙ₁_t_x₂ + h₁((t, x[2]), csts, cache_Yε)
+            K₂_t_x₂ = Lₙ₂_t_x₂ + h₂((t, x[2]), csts, cache_Yε)
+
+            # Calculate the approximate value of G(x)
+            der_G_0_x₁ = exp(im * α * x[1]) * K₁_t_x₂ + im / 4 * k * Bessels.hankelh1(1, k * x_norm) * x[1] / x_norm
+            der_G_0_x₂ = exp(im * α * x[1]) * K₂_t_x₂ + im / 4 * k * Bessels.hankelh1(1, k * x_norm) * x[2] / x_norm
+
+            return (der_G_0_x₁, der_G_0_x₂)
+        end
     end
 end

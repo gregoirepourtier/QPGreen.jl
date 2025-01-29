@@ -238,10 +238,17 @@ Returns the value of t.
 """
 function get_t(x)
 
-    _n = x ÷ (2 * π)
-    _t = x % (2 * π)
+    n = floor((x + π) / (2 * π))
+    t = x - 2 * n * π
 
-    (n, t) = -π <= _t < π ? (_n, _t) : (_n + 1, x - 2 * (_n + 1) * π)
+    # Ensure t is in the range [-π, π[
+    if t ≥ π
+        t -= 2π
+        n += 1
+    elseif t < -π
+        t += 2π
+        n -= 1
+    end
 
     @assert x == 2 * n * π + t&&-π <= t < π "Error finding t in get_t"
 

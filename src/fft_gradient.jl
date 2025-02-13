@@ -101,8 +101,8 @@ function fm_method_preparation_derivative(csts::NamedTuple, grid_size::Integer)
     Lₙ₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂))))
 
     # Create the Bicubic Interpolation function
-    interp_cubic_1 = cubic_spline_interpolation((xx, yy), Lₙ₁)
-    interp_cubic_2 = cubic_spline_interpolation((xx, yy), Lₙ₂)
+    interp_cubic_1 = cubic_spline_interpolation((xx, yy), Lₙ₁; extrapolation_bc=Line())
+    interp_cubic_2 = cubic_spline_interpolation((xx, yy), Lₙ₂; extrapolation_bc=Line())
     # interp_cubic = linear_interpolation((xx, yy), Lₙ; extrapolation_bc=Line()) # More efficient but less accurate?
 
     return interp_cubic_1, interp_cubic_2, cache_Yε
@@ -128,7 +128,7 @@ Keyword arguments:
 Returns the approximate value of the first order derivative of the Green's function at the point `x`.
 """
 function fm_method_calculation_derivative(x, csts::NamedTuple, interp_cubic_x1::T1, interp_cubic_x2::T2,
-                                          cache_Yε::IntegrationCache; nb_terms=100) where {T1, T2}
+                                          cache_Yε::IntegrationCache; nb_terms=50) where {T1, T2}
 
     α, c = (csts.α, csts.c)
 
@@ -149,7 +149,7 @@ function fm_method_calculation_derivative(x, csts::NamedTuple, interp_cubic_x1::
         der_G_x₁ = exp(im * α * x[1]) * K₁_t_x₂
         der_G_x₂ = exp(im * α * x[1]) * K₂_t_x₂
 
-        return (der_G_x₁, der_G_x₂)
+        return SVector(der_G_x₁, der_G_x₂)
     end
 end
 
@@ -173,13 +173,15 @@ Keyword arguments:
 Returns the approximate value of the first order derivative of the analytic part of the Green's function at the point `x`.
 """
 function fm_method_calculation_derivative_smooth(x, csts::NamedTuple, interp_cubic_x1::T1, interp_cubic_x2::T2,
-                                                 cache_Yε::IntegrationCache; nb_terms=100) where {T1, T2}
+                                                 cache_Yε::IntegrationCache; nb_terms=50) where {T1, T2}
 
     α, c, k = (csts.α, csts.c, csts.k)
 
     if abs(x[2]) > c
-        @info "The point is outside the domain D_c"
-        return eigfunc_expansion_derivative(x, csts; nb_terms=nb_terms)
+        # @info "The point is outside the domain D_c"
+        return eigfunc_expansion_derivative(x, csts; nb_terms=nb_terms) +
+               SVector(im / 4 * k * Bessels.hankelh1(1, k * norm(x)) * x[1] / norm(x),
+                       im / 4 * k * Bessels.hankelh1(1, k * norm(x)) * x[2] / norm(x))
     else
         t = get_t(x[1])
 
@@ -187,9 +189,9 @@ function fm_method_calculation_derivative_smooth(x, csts::NamedTuple, interp_cub
         Lₙ₁_t_x₂ = interp_cubic_x1(t, x[2])
         Lₙ₂_t_x₂ = interp_cubic_x2(t, x[2])
 
-        x_norm = norm(x)
+        x_norm = norm(SVector(t, x[2])) # or norm(x)?
         if x_norm == 0
-            return (Lₙ₁_t_x₂, Lₙ₂_t_x₂)
+            return SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂)
         else
             # Get K(t, x₂)
             K₁_t_x₂ = Lₙ₁_t_x₂ + h₁((t, x[2]), csts, cache_Yε)
@@ -199,7 +201,7 @@ function fm_method_calculation_derivative_smooth(x, csts::NamedTuple, interp_cub
             der_G_0_x₁ = exp(im * α * x[1]) * K₁_t_x₂ + im / 4 * k * Bessels.hankelh1(1, k * x_norm) * x[1] / x_norm
             der_G_0_x₂ = exp(im * α * x[1]) * K₂_t_x₂ + im / 4 * k * Bessels.hankelh1(1, k * x_norm) * x[2] / x_norm
 
-            return (der_G_0_x₁, der_G_0_x₂)
+            return SVector(der_G_0_x₁, der_G_0_x₂)
         end
     end
 end

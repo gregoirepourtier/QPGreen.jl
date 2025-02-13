@@ -90,7 +90,7 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
     Lₙ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ))))
 
     # Create the Bicubic Interpolation function
-    interp_cubic = cubic_spline_interpolation((xx, yy), Lₙ)
+    interp_cubic = cubic_spline_interpolation((xx, yy), Lₙ; extrapolation_bc=Line())
     # interp_cubic = linear_interpolation((xx, yy), Lₙ; extrapolation_bc=Line()) # More efficient but less accurate
 
     return interp_cubic, cache_Yε
@@ -114,12 +114,12 @@ Keyword arguments:
 
 Returns the approximate value of the Green's function G(x).
 """
-function fm_method_calculation(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=100) where {T}
+function fm_method_calculation(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=50) where {T}
 
     α, c = (csts.α, csts.c)
 
     if abs(x[2]) > c
-        @info "The point is outside the domain D_c"
+        # @info "The point is outside the domain D_c"
         return eigfunc_expansion(x, csts; nb_terms=nb_terms)
     else
         t = get_t(x[1])
@@ -154,20 +154,20 @@ Keyword arguments:
 
 Returns the approximate value of the Green's function G(x).
 """
-function fm_method_calculation_smooth(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=100) where {T}
+function fm_method_calculation_smooth(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=50) where {T}
 
     α, c, k = (csts.α, csts.c, csts.k)
 
     if abs(x[2]) > c
-        @info "The point is outside the domain D_c"
-        return eigfunc_expansion(x, csts; nb_terms=nb_terms)
+        # @info "The point is outside the domain D_c"
+        return eigfunc_expansion(x, csts; nb_terms=nb_terms) - im / 4 * Bessels.hankelh1(0, k * norm(x))
     else
         t = get_t(x[1])
 
         # Bicubic Interpolation to get Lₙ(t, x₂)
         Lₙ_t_x₂ = interp_cubic(t, x[2])
 
-        x_norm = norm(x)
+        x_norm = norm(SVector(t, x[2])) # or norm(x)?
         if x_norm == 0
             G_0 = Lₙ_t_x₂ - im / 4 * (1 + im * 2 / π * (log(k / 2) + eulergamma))
         else

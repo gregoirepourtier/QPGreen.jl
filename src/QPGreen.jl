@@ -7,6 +7,7 @@ using Interpolations
 
 using DocStringExtensions
 using Polyester
+using StaticArrays
 
 import SpecialFunctions
 import Bessels
@@ -22,6 +23,7 @@ include("other_methods/lattice_sums.jl")
 include("other_methods/ewald.jl")
 include("fft_eval.jl")
 export fm_method_preparation, fm_method_calculation
+export fm_method_calculation_smooth
 
 # include("other_methods/api.jl")
 
@@ -30,6 +32,7 @@ include("fft_helpers.jl")
 
 include("fft_gradient.jl")
 export fm_method_preparation_derivative, fm_method_calculation_derivative
+export fm_method_calculation_derivative_smooth
 
 
 

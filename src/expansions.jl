@@ -87,7 +87,7 @@ function eigfunc_expansion_derivative(z, csts::NamedTuple; period=2π, nb_terms=
         G_prime_x2 += im / (2 * period) * im * sign(z[2]) * (exp_term_minus + exp_term_plus)
     end
 
-    G_prime_x1, G_prime_x2
+    SVector(G_prime_x1, G_prime_x2)
 end
 
 """
@@ -117,7 +117,7 @@ function image_expansion_derivative(z, csts::NamedTuple; period=2π, nb_terms=10
                       im / 4 * k * exp(im * period * α * n) * Bessels.hankelh1(1, k * rₙ) * z[2] / rₙ
     end
 
-    G_prime_x1, G_prime_x2
+    SVector(G_prime_x1, G_prime_x2)
 end
 
 """
@@ -160,7 +160,6 @@ function image_expansion_derivative_smooth(z, csts::NamedTuple; period=2π, nb_t
     α, k = (csts.α, csts.k)
 
     # Compute the value of the derivative of the Green function by basic image expansion
-    # r₀ = √(z[1]^2 + z[2]^2)
     G_prime_x1 = zero(Complex{eltype(z)})
     G_prime_x2 = zero(Complex{eltype(z)})
     for n ∈ 1:nb_terms
@@ -172,5 +171,5 @@ function image_expansion_derivative_smooth(z, csts::NamedTuple; period=2π, nb_t
                       im / 4 * k * exp(im * period * α * n) * Bessels.hankelh1(1, k * rₙ) * z[2] / rₙ
     end
 
-    G_prime_x1, G_prime_x2
+    SVector(G_prime_x1, G_prime_x2)
 end

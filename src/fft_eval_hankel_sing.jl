@@ -1,7 +1,7 @@
 # FFT-based algorithm to compute quasi-periodic Green's function for 2D Helmholtz equation
 
 """
-    fm_method_preparation(csts, grid_size)
+    fm_method_preparation_hankel(csts, grid_size)
 
 Preparation step of the FFT-based algorithm.
 Input arguments:
@@ -11,9 +11,9 @@ Input arguments:
 
 Returns the Fourier coefficients of the function Lₙ.
 """
-function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
+function fm_method_preparation_hankel(csts::NamedTuple, grid_size::Integer)
 
-    α, c, c̃, ε, order = (csts.α, csts.c, csts.c̃, csts.ε, csts.order)
+    α, k, c, c̃, ε, order = (csts.α, csts.k, csts.c, csts.c̃, csts.ε, csts.order)
     c₁, c₂ = (c, (c + c̃) / 2)
 
     type_α = typeof(α)
@@ -36,40 +36,30 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
     K̂ⱼ = Matrix{Complex{type_α}}(undef, N, N)
     L̂ⱼ = Matrix{Complex{type_α}}(undef, N, N)
 
-    evaluation_Φ₁ = Matrix{type_α}(undef, N, N)
-    evaluation_Φ₂ = Matrix{type_α}(undef, N, N)
+    evaluation_Φ = Matrix{type_α}(undef, N, N)
 
-    @inbounds @batch for i ∈ eachindex(xx)
+    for i ∈ eachindex(xx)
         for j ∈ eachindex(yy)
             x = xx[i]
             y = yy[j]
-            evaluation_Φ₁[i, j] = norm((x, y)) != 0.0 ? Φ₁(norm((x, y)), cache_Yε) : zero(type_α)
+            println(Φ(norm((x, y)), k, cache_Yε))
+            evaluation_Φ[i, j] = norm((x, y)) != 0.0 ? Φ(norm((x, y)), k, cache_Yε) : zero(type_α)
         end
     end
-    evaluation_Φ₂ .= xx .* evaluation_Φ₁
 
-    Φ̂₁ⱼ = Matrix{Complex{type_α}}(undef, N ÷ 2 + 1, N)
-    Φ̂₂ⱼ = Matrix{Complex{type_α}}(undef, N ÷ 2 + 1, N)
+    # display(evaluation_Φ[10:20, 10:20])
 
-    shift_sample_Φ₁ = fftshift(evaluation_Φ₁)
-    fft_Φ₁_eval = rfft(shift_sample_Φ₁)
-    rfftshift_normalization!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
+    Φ̂ⱼ = Matrix{Complex{type_α}}(undef, N ÷ 2 + 1, N)
 
-    # println(typeof(Φ̂₁ⱼ))
-    # display(Φ̂₁ⱼ[1:10, 1:10])
+    shift_sample_Φ = fftshift(evaluation_Φ)
+    # display(shift_sample_Φ[1:10, 1:10])
+    fft_Φ_eval = rfft(shift_sample_Φ)
+    rfftshift_normalization!(Φ̂ⱼ, fft_Φ_eval, N, c̃)
 
-    shift_sample_Φ₂ = fftshift(evaluation_Φ₂)
-    fft_Φ₂_eval = rfft(shift_sample_Φ₂)
-    rfftshift_normalization!(Φ̂₂ⱼ, fft_Φ₂_eval, N, c̃)
-
-    # println(typeof(Φ̂₂ⱼ))
-    # display(Φ̂₂ⱼ[1:10, 1:10])
+    # println(typeof(Φ̂ⱼ))
+    # display(Φ̂ⱼ[1:10, 1:10])
 
     p = plan_fft!(fft_cache.shift_sample_eval_int) # ; flags=FFTW.ESTIMATE, timelimit=Inf)
-
-    integral_F̂ⱼ₀ = quadgk(x -> f₀_F̂ⱼ(x, cache_Yε), 0.0, cache_Yε.params.b)[1]
-    F̂ⱼ₀ = Complex{type_α}(-1 / (2 * √(π * c̃)) * integral_F̂ⱼ₀)::Complex{type_α}
-
     @inbounds for i ∈ 1:N
         # a) Calculate Fourier Coefficients K̂ⱼ (using FFT to compute Fourier integrals)
         @views get_K̂ⱼ!(K̂ⱼ[:, i], csts, N, i, fft_cache, cache_χ, p)
@@ -80,15 +70,17 @@ function fm_method_preparation(csts::NamedTuple, grid_size::Integer)
             idx_fft_row = N - i + 2
             for j ∈ 1:N
                 j₂ = fft_cache.j_idx[j]
-                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], Φ̂₂ⱼ[idx_fft_row, j], F̂ⱼ₀, type_α)
-                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ⱼ + im * α * F̂₂ⱼ
+                # F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], Φ̂₂ⱼ[idx_fft_row, j], F̂ⱼ₀, type_α)
+                F̂ⱼ = get_F̂ⱼ_hankel(j₁, j₂, α, k, c̃, Φ̂ⱼ[idx_fft_row, j], type_α)
+                L̂ⱼ[j, i] = K̂ⱼ[j, i] - exp(-im * α * j₁) * F̂ⱼ
             end
         else
             idx_fft_row = i
             for j ∈ 1:N
                 j₂ = fft_cache.j_idx[j]
-                F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], conj(Φ̂₂ⱼ[idx_fft_row, j]), F̂ⱼ₀, type_α)
-                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ⱼ + im * α * F̂₂ⱼ
+                # F̂₁ⱼ, F̂₂ⱼ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ[idx_fft_row, j], conj(Φ̂₂ⱼ[idx_fft_row, j]), F̂ⱼ₀, type_α)
+                F̂ⱼ = get_F̂ⱼ_hankel(j₁, j₂, α, k, c̃, Φ̂ⱼ[idx_fft_row, j], type_α)
+                L̂ⱼ[j, i] = K̂ⱼ[j, i] - exp(-im * α * j₁) * F̂ⱼ
             end
         end
     end
@@ -104,7 +96,7 @@ end
 
 
 """
-    fm_method_calculation(x, csts, interp_cubic, cache_Yε; nb_terms=100)
+    fm_method_calculation_hankel(x, csts, interp_cubic, cache_Yε; nb_terms=100)
 
 Calculation step of the FFT-based algorithm.
 Input arguments:
@@ -120,9 +112,10 @@ Keyword arguments:
 
 Returns the approximate value of the Green's function G(x).
 """
-function fm_method_calculation(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=50) where {T}
+function fm_method_calculation_hankel(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=50) where {T}
 
     α, c = (csts.α, csts.c)
+    k = csts.k
 
     if abs(x[2]) > c
         # @info "The point is outside the domain D_c"
@@ -134,7 +127,8 @@ function fm_method_calculation(x, csts::NamedTuple, interp_cubic::T, cache_Yε::
         Lₙ_t_x₂ = interp_cubic(t, x[2])
 
         # Get K(t, x₂)
-        K_t_x₂ = Lₙ_t_x₂ + f₁((t, x[2]), cache_Yε) - im * α * f₂((t, x[2]), cache_Yε)
+        # K_t_x₂ = Lₙ_t_x₂ + f₁((t, x[2]), cache_Yε) - im * α * f₂((t, x[2]), cache_Yε)
+        K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * f_hankel((t, x[2]), k, cache_Yε)
 
         # Calculate the approximate value of G(x)
         G_x = exp(im * α * x[1]) * K_t_x₂
@@ -160,7 +154,8 @@ Keyword arguments:
 
 Returns the approximate value of the Green's function G(x).
 """
-function fm_method_calculation_smooth(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache; nb_terms=50) where {T}
+function fm_method_calculation_smooth_hankel(x, csts::NamedTuple, interp_cubic::T, cache_Yε::IntegrationCache;
+                                             nb_terms=50) where {T}
 
     α, c, k = (csts.α, csts.c, csts.k)
 

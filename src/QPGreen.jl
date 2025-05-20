@@ -34,6 +34,6 @@ include("fft_gradient.jl")
 export fm_method_preparation_derivative, fm_method_calculation_derivative
 export fm_method_calculation_derivative_smooth
 
-
+include("fft_eval_hankel_sing.jl")
 
 end # module

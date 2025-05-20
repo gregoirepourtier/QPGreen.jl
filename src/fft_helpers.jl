@@ -1,5 +1,15 @@
 # FFT-based algorithm
 
+# careful using the pkg Bessels restricts the evaluation of the Hankel function to real arguments
+function Φ(x, k, cache::IntegrationCache)
+    return (1 / x * Bessels.hankelh1(0, k * x) - 2 * k * Bessels.hankelh1(1, k * x)) * Yε_1st_der(x, cache) +
+           Bessels.hankelh1(0, k * x) * Yε_2nd_der(x, cache)
+end
+
+function f_hankel(x, k, cache::IntegrationCache)
+    return im / 4 * Bessels.hankelh1(0, k * norm(x)) * Yε(norm(x), cache)
+end
+
 function Φ₁(x, cache::IntegrationCache)
     return (2 + log(x)) * Yε_1st_der(x, cache) / x + Yε_2nd_der(x, cache) * log(x)
 end
@@ -94,6 +104,19 @@ function get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, F̂₁ⱼ₀::Compl
         F̂₂ⱼ = zero(Complex{type_α})
     end
     return F̂₁ⱼ, F̂₂ⱼ
+end
+
+function get_F̂ⱼ_hankel(j₁, j₂, α, k, c̃, Φ̂ⱼ, ::Type{type_α}) where {type_α}
+
+    cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
+    F̂ⱼ = -1 / cst * (1 / (4 * π * √(π * c̃)) + im / 4 * Φ̂ⱼ)
+
+    # else # special case |j| = 0
+    #     F̂₁ⱼ = F̂₁ⱼ₀
+    #     F̂₂ⱼ = zero(Complex{type_α})
+    # end
+    # return F̂₁ⱼ, F̂₂ⱼ
+    return F̂ⱼ
 end
 
 """

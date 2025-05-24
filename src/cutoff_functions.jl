@@ -1,15 +1,18 @@
-# Build the cutoff functions χ and Yε and their derivatives from paper [1].
+# Construct the cutoff functions χ and Yε, along with their derivatives, as defined in [1].
 
 """
-    χ(x, cache)
+    χ(x, cache::IntegrationCache)
 
-Build the cutoff function χ.
-Input arguments:
+Evaluate the cutoff function `χ` at the point `x` (`C^∞` function).
 
-  - x: point at which the cutoff function is evaluated
-  - cache: see [`IntegrationCache`](@ref)
+# Input arguments
 
-Returns the value of the cutoff function at x.
+  - `x`: point at which the cutoff function is evaluated.
+  - `cache`: see [`IntegrationCache`](@ref).
+
+# Returns
+
+  - The value of the cutoff function `χ` at `x`.
 """
 function χ(x::T, cache::IntegrationCache) where {T}
     if abs(x) >= cache.params.b
@@ -24,15 +27,18 @@ function χ(x::T, cache::IntegrationCache) where {T}
 end
 
 """
-    χ_der(x, cache)
+    χ_der(x, cache::IntegrationCache)
 
-Build the derivative of the cutoff function χ.
-Input arguments:
+Evaluate the derivative of the cutoff function `χ` at the point `x`.
 
-  - x: point at which the derivative of the cutoff function is evaluated
-  - cache: see [`IntegrationCache`](@ref)
+# Input arguments
 
-Returns the value of the derivative of the cutoff function at x.
+  - x: point at which the derivative of the cutoff function is evaluated.
+  - cache: see [`IntegrationCache`](@ref).
+
+# Returns
+
+  - The value of the derivative of the cutoff function `χ` at `x`.
 """
 function χ_der(x::T, cache::IntegrationCache) where {T}
     if -cache.params.b < x < -cache.params.a
@@ -45,15 +51,18 @@ function χ_der(x::T, cache::IntegrationCache) where {T}
 end
 
 """
-    Yε(x, cache)
+    Yε(x, cache::IntegrationCache)
 
-Build the cutoff function Yε.
-Input arguments:
+Evaluate the cutoff function `Yε` at the point `x` (`C^∞` function).
 
-  - x: point at which the cutoff function is evaluated
-  - cache: see [`IntegrationCache`](@ref)
+# Input arguments
 
-Returns the value of the cutoff function at x.
+  - x: point at which the cutoff function is evaluated.
+  - cache: see [`IntegrationCache`](@ref).
+
+# Returns
+
+  - The value of the cutoff function `Yε` at `x`.
 """
 function Yε(x::T, cache::IntegrationCache) where {T}
     if x >= cache.params.b
@@ -66,29 +75,35 @@ function Yε(x::T, cache::IntegrationCache) where {T}
 end
 
 """
-    Yε_1st_der(x, cache)
+    Yε_1st_der(x, cache::IntegrationCache)
 
-Build the derivative of the cutoff function Yε.
-Input arguments:
+Evaluate the derivative of the cutoff function `Yε` at the point `x`.
 
-  - x: point at which the derivative of the cutoff function is evaluated
-  - cache: see [`IntegrationCache`](@ref)
+# Input arguments
 
-Returns the value of the derivative of the cutoff function at x.
+  - x: point at which the derivative of the cutoff function is evaluated.
+  - cache: see [`IntegrationCache`](@ref).
+
+# Returns
+
+  - The value of the derivative of the cutoff function `Yε` at `x`.
 """
 Yε_1st_der(x::T, cache::IntegrationCache) where {T} = cache.params.a < x < cache.params.b ?
                                                       -cache.normalization * polynomial_cutoff(x, cache.params) : zero(T)
 
 """
-    Yε_2nd_der(x, cache)
+    Yε_2nd_der(x, cache::IntegrationCache)
 
-Build the 2nd derivative of the cutoff function Yε.
-Input arguments:
+Evaluate the 2nd order derivative of the cutoff function `Yε` at the point `x`.
 
-  - x: point at which the 2nd derivative of the cutoff function is evaluated
-  - cache: see [`IntegrationCache`](@ref)
+# Input arguments
 
-Returns the value of the 2nd derivative of the cutoff function at x.
+  - x: point at which the 2nd order derivative of the cutoff function is evaluated.
+  - cache: see [`IntegrationCache`](@ref).
+
+# Returns
+
+  - The value of the 2nd order derivative of the cutoff function `Yε` at `x`.
 """
 Yε_2nd_der(x::T, cache::IntegrationCache) where {T} = cache.params.a < x < cache.params.b ?
                                                       -cache.normalization * polynomial_cutoff_derivative(x, cache.params) :

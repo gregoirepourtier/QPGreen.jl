@@ -8,13 +8,39 @@ function QPGreenFunction_eval(params, points, idx, tol; verbose=false)
 
     grid_sizes = [2^i for i ∈ idx]
     for grid_size ∈ grid_sizes
-        interp, cache = fm_method_preparation(params, grid_size)
+        interp, cache = init_qp_green_fft(params, grid_size)
 
         if verbose
             println("Grid size: ", grid_size)
         end
         for i ∈ eachindex(points)
-            G_x = fm_method_calculation(points[i], params, interp, cache; nb_terms=1_000_000)
+            G_x = eval_qp_green(points[i], params, interp, cache; nb_terms=1_000_000)
+            res_eig = vals_expansions[i]
+            @test abs(res_eig - G_x) < tol
+            if verbose
+                str_err = @sprintf "%.2E" abs(G_x - res_eig)/abs(res_eig)
+                println("Point P", i, " and res: ", G_x, " and error: ", str_err)
+            end
+        end
+        if verbose
+            println(" ")
+        end
+    end
+end
+
+function QPSmoothGreenFunction_eval(params, points, idx, tol; verbose=false)
+
+    vals_expansions = image_expansion_smooth.(points, Ref(params); nb_terms=50_000_000)
+
+    grid_sizes = [2^i for i ∈ idx]
+    for grid_size ∈ grid_sizes
+        interp, cache = init_qp_green_fft(params, grid_size)
+
+        if verbose
+            println("Grid size: ", grid_size)
+        end
+        for i ∈ eachindex(points)
+            G_x = eval_smooth_qp_green(points[i], params, interp, cache; nb_terms=1_000_000)
             res_eig = vals_expansions[i]
             @test abs(res_eig - G_x) < tol
             if verbose
@@ -40,23 +66,27 @@ end
 
     # Refer to Table 1
     verbose ? println("========= Table 1 ==========") : nothing
-    params = (α=0.3, k=√10, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    params = (alpha=0.3, k=√10, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)
     QPGreenFunction_eval(params, points, 5:10, 1e-3; verbose=verbose)
+    QPSmoothGreenFunction_eval(params, points, 5:10, 1e-3; verbose=verbose)
 
     # Refer to Table 2
     verbose ? println("========= Table 2 ==========") : nothing
-    params = (α=0.3, k=5, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    params = (alpha=0.3, k=5, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)
     QPGreenFunction_eval(params, points, 5:10, 1e-3; verbose=verbose)
+    QPSmoothGreenFunction_eval(params, points, 5:10, 1e-3; verbose=verbose)
 
     # Refer to Table 3
     verbose ? println("========= Table 3 ==========") : nothing
-    params = (α=√2, k=50, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    params = (alpha=√2, k=50, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)
     QPGreenFunction_eval(params, points, 7:10, 1e-2; verbose=verbose)
+    QPSmoothGreenFunction_eval(params, points, 7:10, 1e-2; verbose=verbose)
 
     # Refer to Table 4
     verbose ? println("========= Table 4 ==========") : nothing
-    params = (α=-√2, k=100, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    params = (alpha=-√2, k=100, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)
     QPGreenFunction_eval(params, points, 8:10, 1e-2; verbose=verbose)
+    QPSmoothGreenFunction_eval(params, points, 8:10, 1e-2; verbose=verbose)
 end
 
 @testset "Paper Green's function for the 2D Helmholtz equation in periodic domains, C.M Linton" begin
@@ -72,7 +102,7 @@ end
     # Test to match parameter from the paper (Linton, 1998)
     @test (P1[1] / d == 0.0, P1[2] / d == 0.01, k * d == 2, β * d == √2) == (true, true, true, true)
 
-    params = (α=β, k=k, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    params = (alpha=β, k=k, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)
     QPGreenFunction_eval(params, point, 5:10, 1e-3; verbose=verbose)
 
     # Refer to Table 3
@@ -82,7 +112,7 @@ end
     # Test to match parameter from the paper (Linton, 1998)
     @test (P1[1] / d == 0.0, P1[2] / d == 0.01, k * d == 10, β * d == 5√2) == (true, true, true, true)
 
-    params = (α=β, k=k, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    params = (alpha=β, k=k, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)
     QPGreenFunction_eval(params, point, 5:10, 1e-3; verbose=verbose)
 
     # Refer to Table 4
@@ -92,7 +122,7 @@ end
     # Test to match parameter from the paper (Linton, 1998)
     @test (P1[1] / d == 0.0, P1[2] / d == 0.01, k * d == 2, β * d == 3) == (true, true, true, true)
 
-    params = (α=β, k=k, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    params = (alpha=β, k=k, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)
     QPGreenFunction_eval(params, point, 5:10, 1e-3; verbose=verbose)
 
     # Refer to Table 5
@@ -107,6 +137,6 @@ end
     @test (P2[1] / d == 0.1, P2[2] / d == 0.5, k * d == 2, β * d == √2) == (true, true, true, true)
     @test (P3[1] / d == 0.5, P3[2] / d == 0.5, k * d == 2, β * d == √2) == (true, true, true, true)
 
-    params = (α=β, k=k, c=0.6, c̃=1.0, ε=0.4341, order=8)
+    params = (alpha=β, k=k, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)
     QPGreenFunction_eval(params, points, 5:10, 1e-10; verbose=verbose) # here since abs(z[2]) > c, we can use the eigenfunction expansion directly
 end

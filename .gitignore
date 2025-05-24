@@ -4,3 +4,4 @@
 *Manifest.toml
 /docs/build/
 drafts
+*.DS_Store

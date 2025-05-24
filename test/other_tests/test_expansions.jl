@@ -10,7 +10,7 @@ end
 
 @testset "Test suite expansions (eval)" begin
     z = [1.0, 2.0]
-    csts = (k=10.0, α=0.3)
+    csts = (k=10.0, alpha=0.3)
 
     expansion_eval_test(z, csts, 1e-6)
     # Add more tests here
@@ -26,7 +26,7 @@ end
 
 @testset "Test suite expansions (gradient)" begin
     z = [1.0, 2.0]
-    csts = (k=10.0, α=0.3)
+    csts = (k=10.0, alpha=0.3)
 
     expansion_derivative_eval_test(z, csts, 1e-4)
     # Add more tests here

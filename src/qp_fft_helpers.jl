@@ -337,3 +337,18 @@ function process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_pla
     use_conj = i > N ÷ 2 + 1
     return j₁, freq_idx, use_conj
 end
+
+"""
+    check_compatibility(alpha, k)
+
+Check if the parameters `alpha` and `k` are compatible, i.e., if `βₙ` is different from zero. For `βₙ`
+equal to zero, the algorithm fails.
+"""
+function check_compatibility(alpha, k)
+    n1 = -alpha + k
+    n2 = -alpha - k
+
+    if isinteger(n1) || isinteger(n2)
+        error("Incompatible alpha and k: some βₙ will be zero.")
+    end
+end

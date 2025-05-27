@@ -33,9 +33,12 @@ Preparation step of the FFT-based algorithm.
             + `cache`: Precomputed integration cache for reuse in later computations.
 """
 function init_qp_green_fft(params::NamedTuple, grid_size::Integer; derivative=false)
-    α, c, c̃, ε, order = (params.alpha, params.c, params.c_tilde, params.epsilon, params.order)
+    α, k, c, c̃, ε, order = (params.alpha, params.k, params.c, params.c_tilde, params.epsilon, params.order)
     c₁, c₂ = c, (c + c̃) / 2
     T = typeof(α)
+
+    # Check that βₙ ≠ 0, i.e. √(k^2 - αₙ^2) ≠ 0 to ensure that the eigenfunction expansion is well-defined
+    check_compatibility(α, k)
 
     # Parameters for the cutoff functions
     params_χ = IntegrationParameters(c₁, c₂, order)

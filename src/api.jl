@@ -130,10 +130,12 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; derivative=fa
     # Precompute FFT plan (reused for each column)
     fft_plan = plan_fft!(fft_cache.shift_sample_eval_int)
 
+    factor = -1 / (2 * √(π * c̃))
     # Precompute the integrals for |j| = 0
-    F̂₀ = Complex{T}(-1 / (2 * √(π * c̃)) *
-                     quadgk(x -> f₀_F̂ⱼ(x, Yε_cache), 0.0, params_Yε.b)[1])
-    Ĥ₁ⱼ₀ = derivative ? im * α / (4 * √(π * c̃)) * quadgk(x -> f₀_Ĥⱼ(x, Yε_cache), 0.0, params_Yε.b)[1] : nothing
+    F̂₀::Complex{T} = Complex{T}(factor *
+                                 quadgk(x -> f₀_F̂ⱼ(x, Yε_cache), 0.0, params_Yε.b)[1])
+    Ĥ₁ⱼ₀::Union{Nothing, Complex{T}} = derivative ?
+                                        im * α / (4 * √(π * c̃)) * quadgk(x -> f₀_Ĥⱼ(x, Yε_cache), 0.0, params_Yε.b)[1] : nothing
 
     # Process each frequency component
     if derivative

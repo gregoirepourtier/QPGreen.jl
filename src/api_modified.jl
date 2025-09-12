@@ -94,3 +94,22 @@ function eval_qp_green_mod(x, params::NamedTuple, value_interpolator::T, Yε_cac
         return G_x
     end
 end
+
+
+function eval_smooth_qp_green_mod(x, params::NamedTuple, value_interpolator::T; nb_terms=50) where {T}
+
+    α, c, k = (params.alpha, params.c, params.k)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        singularity = im / 4 * Bessels.hankelh1(0, k * norm(x))
+        return eigfunc_expansion(x, params; nb_terms=nb_terms) - singularity
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ_t_x₂ = value_interpolator(t, x[2])
+
+        return exp(im * α * x[1]) * Lₙ_t_x₂
+    end
+end

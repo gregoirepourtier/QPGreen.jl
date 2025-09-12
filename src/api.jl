@@ -103,10 +103,10 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; derivative=fa
     Φ̂₂_freq = similar(Φ̂₁_freq)
     Φ̂₃_freq = derivative ? similar(Φ̂₁_freq) : nothing
 
-    ĥ₁ⱼ = derivative ? Matrix{Complex{T}}(undef, N, N) : nothing
-    ĥ₂ⱼ = derivative ? similar(ĥ₁ⱼ) : nothing
+    ĥ₁ⱼ = derivative ? Matrix{Complex{T}}(undef, N ÷ 2 + 1, N) : nothing
+    ĥ₂ⱼ = derivative ? Matrix{Complex{T}}(undef, N, N) : nothing
 
-    ρ̂ₓⱼ = derivative ? Matrix{Complex{T}}(undef, N, N) : nothing
+    ρ̂ₓⱼ = derivative ? Matrix{Complex{T}}(undef, N ÷ 2 + 1, N) : nothing
 
     ## Transform to frequency domain with proper normalization
     # Shift spatial samples to FFT convention
@@ -117,10 +117,12 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; derivative=fa
         Φ₃_shifted = fftshift(Φ₃_eval)
         rfftshift_normalization!(Φ̂₃_freq, rfft(Φ₃_shifted), N, c̃)
 
-        ĥ₁ⱼ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(h₁_reduced_eval)))
+        h₁_shifted = fftshift(h₁_reduced_eval)
+        rfftshift_normalization!(ĥ₁ⱼ, rfft(h₁_shifted), N, c̃)
         ĥ₂ⱼ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(h₂_reduced_eval)))
 
-        ρ̂ₓⱼ .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(ρₓ_eval)))
+        ρₓ_shifted = fftshift(ρₓ_eval)
+        rfftshift_normalization!(ρ̂ₓⱼ, rfft(ρₓ_shifted), N, c̃)
     end
 
     # Compute real FFTs
@@ -148,9 +150,11 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; derivative=fa
                 Φ̂₁ = Φ̂₁_freq[freq_idx, j]
                 Φ̂₂ = use_conj ? Φ̂₂_freq[freq_idx, j] : conj(Φ̂₂_freq[freq_idx, j])
                 Φ̂₃ = use_conj ? Φ̂₃_freq[freq_idx, j] : conj(Φ̂₃_freq[freq_idx, j])
+                ĥ₁ⱼ_val = use_conj ? ĥ₁ⱼ[freq_idx, j] : conj(ĥ₁ⱼ[freq_idx, j])
+                ρ̂ₓⱼ_val = use_conj ? ρ̂ₓⱼ[freq_idx, j] : conj(ρ̂ₓⱼ[freq_idx, j])
 
                 F̂₁, F̂₂ = get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁, Φ̂₂, F̂₀, T)
-                Ĥ₁ⱼ, Ĥ₂ⱼ = get_Ĥⱼ(j₁, j₂, params, F̂₁, F̂₂, ρ̂ₓⱼ[i, j], Φ̂₃, ĥ₁ⱼ[i, j], ĥ₂ⱼ[i, j], Ĥ₁ⱼ₀, T)
+                Ĥ₁ⱼ, Ĥ₂ⱼ = get_Ĥⱼ(j₁, j₂, params, F̂₁, F̂₂, ρ̂ₓⱼ_val, Φ̂₃, ĥ₁ⱼ_val, ĥ₂ⱼ[i, j], Ĥ₁ⱼ₀, T)
 
                 L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂₁ + im * α * F̂₂
                 L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - Ĥ₁ⱼ

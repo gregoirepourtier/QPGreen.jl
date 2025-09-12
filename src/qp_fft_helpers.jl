@@ -1,15 +1,15 @@
 # Helper functions for various computing Fourier coefficients.
 
+
+"""
+    Φ(x, k, cache::IntegrationCache)
+
+Calculate the function Φ (removal of the singularity in the Fourier space in the case where you use
+the Hankel function directly and not its asymptotic form).
+"""
 function Φ(x, k, cache::IntegrationCache)
     return -2 * k * Bessels.hankelh1(1, k * x) * Yε_1st_der(x, cache) +
            Bessels.hankelh1(0, k * x) * (Yε_1st_der(x, cache) / x + Yε_2nd_der(x, cache))
-    # return (1 / x * Bessels.hankelh1(0, k * x) - 2 * k * Bessels.hankelh1(1, k * x)) * Yε_1st_der(x, cache) +
-    #        Bessels.hankelh1(0, k * x) * Yε_2nd_der(x, cache)
-end
-
-function f_hankel(x, k, α, cache::IntegrationCache)
-    x_norm = norm(x)
-    return exp(-im * α * x[1]) * im / 4 * Bessels.hankelh1(0, k * x_norm) * Yε(x_norm, cache)
 end
 
 """
@@ -136,6 +136,27 @@ function get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, F̂₁ⱼ₀::Compl
         F̂₂ⱼ = zero(Complex{T})
     end
     return F̂₁ⱼ, F̂₂ⱼ
+end
+
+"""
+    f_hankel(x, k, α, cache::IntegrationCache)
+
+Calculate the function `f_hankel`.
+
+# Input arguments
+
+    - `x`: point at which the function is evaluated
+    - `k`: wavenumber
+    - `α`: quasi-periodicity parameter
+    - `cache`: cache for the cut-off function `Yε`
+
+# Returns
+
+    - The value of the function `f_hankel` at the point `x`.
+"""
+function f_hankel(x, k, α, cache::IntegrationCache)
+    x_norm = norm(x)
+    return exp(-im * α * x[1]) * im / 4 * Bessels.hankelh1(0, k * x_norm) * Yε(x_norm, cache)
 end
 
 """

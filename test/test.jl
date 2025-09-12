@@ -9,7 +9,7 @@ using SpecialFunctions
 Z = (0.002π, 0.0);
 params = (alpha=0.3, k=1.0, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8);
 
-grid_size = 1024;
+grid_size = 32;
 val_interp, cache = init_qp_green_fft(params, grid_size);
 eval_qp_green(Z, params, val_interp, cache; nb_terms=32);
 

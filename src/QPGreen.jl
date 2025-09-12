@@ -29,4 +29,8 @@ export grad_qp_green, grad_smooth_qp_green
 include("cutoff_functions.jl")
 include("qp_fft_helpers.jl")
 
+include("api_modified.jl")
+export init_qp_green_fft_mod
+export eval_qp_green_mod
+
 end # module

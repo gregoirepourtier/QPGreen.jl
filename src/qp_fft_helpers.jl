@@ -1,5 +1,17 @@
 # Helper functions for various computing Fourier coefficients.
 
+function Φ(x, k, cache::IntegrationCache)
+    return -2 * k * Bessels.hankelh1(1, k * x) * Yε_1st_der(x, cache) +
+           Bessels.hankelh1(0, k * x) * (Yε_1st_der(x, cache) / x + Yε_2nd_der(x, cache))
+    # return (1 / x * Bessels.hankelh1(0, k * x) - 2 * k * Bessels.hankelh1(1, k * x)) * Yε_1st_der(x, cache) +
+    #        Bessels.hankelh1(0, k * x) * Yε_2nd_der(x, cache)
+end
+
+function f_hankel(x, k, α, cache::IntegrationCache)
+    x_norm = norm(x)
+    return exp(-im * α * x[1]) * im / 4 * Bessels.hankelh1(0, k * x_norm) * Yε(x_norm, cache)
+end
+
 """
     Φ₁(x, cache::IntegrationCache)
 

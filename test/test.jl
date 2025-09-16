@@ -42,7 +42,7 @@ end
 ## Smooth part
 grid_size = 1024;
 val_interp, cache = init_qp_green_fft_mod(params, grid_size);
-res_fm = eval_smooth_qp_green_mod(Z, params, val_interp, cache; nb_terms=500);
+res_fm = eval_smooth_qp_green_mod(Z, params, val_interp; nb_terms=500);
 println(res_fm)
 
 

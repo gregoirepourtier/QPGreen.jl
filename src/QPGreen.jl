@@ -32,5 +32,6 @@ include("qp_fft_helpers.jl")
 include("api_modified.jl")
 export init_qp_green_fft_mod
 export eval_qp_green_mod, eval_smooth_qp_green_mod
+export grad_qp_green_mod
 
 end # module

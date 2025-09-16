@@ -25,3 +25,19 @@ grad_G = grad_qp_green(Z, params, grad, cache; nb_terms=32);
     println("Grid size: ", i, " and res: ", res_fm[2], " and error: ", str_err_2)
     println(" ")
 end
+
+## modified API
+grid_size = 1024;
+value, grad, cache = init_qp_green_fft_mod(params, grid_size; derivative=true);
+grad_G = grad_qp_green_mod(Z, params, grad, cache; nb_terms=32)
+
+@time for i ∈ [32, 64, 128, 256, 512, 1024]
+    value, grad, cache = init_qp_green_fft_mod(params, i; derivative=true)
+    res_fm = grad_qp_green_mod(Z, params, grad, cache; nb_terms=32)
+    str_err_1 = @sprintf "%.2E" abs(res_fm[1] - res_eig[1])/abs(res_eig[1])
+    println("Grid size: ", i, " and res: ", res_fm[1], " and error: ", str_err_1)
+
+    str_err_2 = @sprintf "%.2E" abs(res_fm[2] - res_eig[2])/abs(res_eig[2])
+    println("Grid size: ", i, " and res: ", res_fm[2], " and error: ", str_err_2)
+    println(" ")
+end

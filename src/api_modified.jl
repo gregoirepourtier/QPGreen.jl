@@ -28,6 +28,11 @@ function init_qp_green_fft_mod(params::NamedTuple, grid_size::Integer; derivativ
     L̂ⱼ = similar(K̂ⱼ)
 
     Φ_eval = Matrix{Complex{T}}(undef, N, N)
+
+    # Initialize derivative-specific arrays
+    L̂ⱼ₁ = derivative ? similar(L̂ⱼ) : nothing
+    L̂ⱼ₂ = derivative ? similar(L̂ⱼ) : nothing
+
     @inbounds @batch for i ∈ axes(x_grid, 1), j ∈ axes(y_grid, 1)
         pt = SVector(x_grid[i], y_grid[j])
         r = norm(pt)
@@ -45,27 +50,56 @@ function init_qp_green_fft_mod(params::NamedTuple, grid_size::Integer; derivativ
     # Precompute FFT plan (reused for each column)
     fft_plan = plan_fft!(fft_cache.shift_sample_eval_int)
 
+    # Process each frequency component
+    if derivative
+        @inbounds for i ∈ 1:N
+            j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
-    @inbounds for i ∈ 1:N
-        j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
+            # Compute L̂ⱼ, L̂ⱼ₁, L̂ⱼ₂ coefficients
+            @inbounds @batch for j ∈ 1:N
+                j₂ = fft_cache.j_idx[j]
 
-        # Compute L̂ⱼ coefficients
-        @inbounds @batch for j ∈ 1:N
-            j₂ = fft_cache.j_idx[j]
+                cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
+                F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
 
-            cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
-            F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
+                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
+                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - im * (α + j₁) * F̂ⱼ
+                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * F̂ⱼ
+            end
+        end
+    else
+        @inbounds for i ∈ 1:N
+            j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
-            L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
+            # Compute L̂ⱼ coefficients
+            @inbounds @batch for j ∈ 1:N
+                j₂ = fft_cache.j_idx[j]
+
+                cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
+                F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
+
+                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
+            end
         end
     end
-
 
     # Transform back to spatial domain
     L_spatial = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ))))
 
     # Create spline interpolator
     value_interpolator = cubic_spline_interpolation((x_grid, y_grid), L_spatial; extrapolation_bc=Line())
+
+    if derivative
+        Lₙ₁ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁))))
+        Lₙ₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂))))
+
+        grad_interpolator = (∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁; extrapolation_bc=Line()),
+                             ∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂; extrapolation_bc=Line()))
+
+        return (value=value_interpolator,
+                grad=grad_interpolator,
+                cache=Yε_cache)
+    end
 
     return (value=value_interpolator,
             cache=Yε_cache)
@@ -111,5 +145,34 @@ function eval_smooth_qp_green_mod(x, params::NamedTuple, value_interpolator::T; 
         Lₙ_t_x₂ = value_interpolator(t, x[2])
 
         return exp(im * α * x[1]) * Lₙ_t_x₂
+    end
+end
+
+function grad_qp_green_mod(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
+                           nb_terms=50) where {T1, T2}
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        return eigfunc_expansion_derivative(x, params; nb_terms=nb_terms)
+    else
+        t = get_t(x[1])
+
+        println("Using modified gradient")
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ₁_t_x₂ = grad.∂x(t, x[2])
+        Lₙ₂_t_x₂ = grad.∂y(t, x[2])
+
+        # Get K(t, x₂)
+        (sing_x1, sing_x2) = der_f_hankel((t, x[2]), k, α, Yε_cache)
+        K₁_t_x₂ = Lₙ₁_t_x₂ + sing_x1
+        K₂_t_x₂ = Lₙ₂_t_x₂ + sing_x2
+
+        # Calculate the approximate value of ∇G(x)
+        grad = exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂)
+
+        return grad
     end
 end

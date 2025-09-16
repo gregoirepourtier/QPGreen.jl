@@ -1,6 +1,5 @@
 # Helper functions for various computing Fourier coefficients.
 
-
 """
     Φ(x, k, cache::IntegrationCache)
 
@@ -157,6 +156,12 @@ Calculate the function `f_hankel`.
 function f_hankel(x, k, α, cache::IntegrationCache)
     x_norm = norm(x)
     return exp(-im * α * x[1]) * im / 4 * Bessels.hankelh1(0, k * x_norm) * Yε(x_norm, cache)
+end
+
+function der_f_hankel(x, k, α, cache::IntegrationCache)
+    x_norm = norm(x)
+    common_term = exp(-im * α * x[1]) * -im * k / 4 * Bessels.hankelh1(1, k * x_norm) / x_norm * Yε(x_norm, cache)
+    return (common_term * x[1], common_term * x[2])
 end
 
 """

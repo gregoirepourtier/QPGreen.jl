@@ -1,6 +1,6 @@
 # API to compute the α quasi-periodic Green's function for the 2D Helmholtz equation using the FFT-based algorithm from [Zhang2018](@cite).
 
-function init_qp_green_fft_mod(params::NamedTuple, grid_size::Integer; derivative=false)
+function init_qp_green_fft_mod(params::NamedTuple, grid_size::Integer; gradient=false, hessian=false)
     α, k, c, c̃, ε, order = (params.alpha, params.k, params.c, params.c_tilde, params.epsilon, params.order)
     c₁, c₂ = c, (c + c̃) / 2
     T = typeof(α)
@@ -30,8 +30,11 @@ function init_qp_green_fft_mod(params::NamedTuple, grid_size::Integer; derivativ
     Φ_eval = Matrix{Complex{T}}(undef, N, N)
 
     # Initialize derivative-specific arrays
-    L̂ⱼ₁ = derivative ? similar(L̂ⱼ) : nothing
-    L̂ⱼ₂ = derivative ? similar(L̂ⱼ) : nothing
+    L̂ⱼ₁ = gradient ? similar(L̂ⱼ) : nothing
+    L̂ⱼ₂ = gradient ? similar(L̂ⱼ) : nothing
+    L̂ⱼ₁₁ = hessian ? similar(L̂ⱼ) : nothing
+    L̂ⱼ₁₂ = hessian ? similar(L̂ⱼ) : nothing
+    L̂ⱼ₂₂ = hessian ? similar(L̂ⱼ) : nothing
 
     @inbounds @batch for i ∈ axes(x_grid, 1), j ∈ axes(y_grid, 1)
         pt = SVector(x_grid[i], y_grid[j])
@@ -51,7 +54,46 @@ function init_qp_green_fft_mod(params::NamedTuple, grid_size::Integer; derivativ
     fft_plan = plan_fft!(fft_cache.shift_sample_eval_int)
 
     # Process each frequency component
-    if derivative
+    if hessian && gradient
+        @inbounds for i ∈ 1:N
+            j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
+
+            # Compute L̂ⱼ, L̂ⱼ₁, L̂ⱼ₂, L̂ⱼ₁₁, L̂ⱼ₁₂, L̂ⱼ₂₂ coefficients
+            @inbounds @batch for j ∈ 1:N
+                j₂ = fft_cache.j_idx[j]
+
+                cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
+                F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
+
+                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
+
+                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - im * (α + j₁) * F̂ⱼ
+                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * F̂ⱼ
+
+                L̂ⱼ₁₁[j, i] = -(α + j₁)^2 * K̂ⱼ[j, i] + (α + j₁)^2 * F̂ⱼ
+                L̂ⱼ₁₂[j, i] = -(α + j₁) * j₂ * (π / c̃) * K̂ⱼ[j, i] + (α + j₁) * j₂ * (π / c̃) * F̂ⱼ
+                L̂ⱼ₂₂[j, i] = -(j₂ * π / c̃)^2 * K̂ⱼ[j, i] + (j₂ * π / c̃)^2 * F̂ⱼ
+            end
+        end
+    elseif hessian && !gradient
+        @inbounds for i ∈ 1:N
+            j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
+
+            # Compute L̂ⱼ, L̂ⱼ₁₁, L̂ⱼ₁₂, L̂ⱼ₂₂ coefficients
+            @inbounds @batch for j ∈ 1:N
+                j₂ = fft_cache.j_idx[j]
+
+                cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
+                F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
+
+                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
+
+                L̂ⱼ₁₁[j, i] = -(α + j₁)^2 * K̂ⱼ[j, i] + (α + j₁)^2 * F̂ⱼ
+                L̂ⱼ₁₂[j, i] = -(α + j₁) * j₂ * (π / c̃) * K̂ⱼ[j, i] + (α + j₁) * j₂ * (π / c̃) * F̂ⱼ
+                L̂ⱼ₂₂[j, i] = -(j₂ * π / c̃)^2 * K̂ⱼ[j, i] + (j₂ * π / c̃)^2 * F̂ⱼ
+            end
+        end
+    elseif gradient && !hessian
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
@@ -89,15 +131,44 @@ function init_qp_green_fft_mod(params::NamedTuple, grid_size::Integer; derivativ
     # Create spline interpolator
     value_interpolator = cubic_spline_interpolation((x_grid, y_grid), L_spatial; extrapolation_bc=Line())
 
-    if derivative
+    if gradient && hessian
         Lₙ₁ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁))))
         Lₙ₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂))))
 
         grad_interpolator = (∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁; extrapolation_bc=Line()),
                              ∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂; extrapolation_bc=Line()))
 
+        Lₙ₁₁ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁₁))))
+        Lₙ₁₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁₂))))
+        Lₙ₂₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂₂))))
+
+        hess_interpolator = (∂x∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₁; extrapolation_bc=Line()),
+                             ∂x∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₂; extrapolation_bc=Line()),
+                             ∂y∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂₂; extrapolation_bc=Line()))
+
         return (value=value_interpolator,
                 grad=grad_interpolator,
+                hess=hess_interpolator,
+                cache=Yε_cache)
+    elseif gradient && !hessian
+        Lₙ₁ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁))))
+        Lₙ₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂))))
+
+        grad_interpolator = (∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁; extrapolation_bc=Line()),
+                             ∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂; extrapolation_bc=Line()))
+        return (value=value_interpolator,
+                grad=grad_interpolator,
+                cache=Yε_cache)
+    elseif !gradient && hessian
+        Lₙ₁₁ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁₁))))
+        Lₙ₁₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁₂))))
+        Lₙ₂₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂₂))))
+
+        hess_interpolator = (∂x∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₁; extrapolation_bc=Line()),
+                             ∂x∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₂; extrapolation_bc=Line()),
+                             ∂y∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂₂; extrapolation_bc=Line()))
+        return (value=value_interpolator,
+                hess=hess_interpolator,
                 cache=Yε_cache)
     end
 
@@ -159,14 +230,12 @@ function grad_qp_green_mod(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_
     else
         t = get_t(x[1])
 
-        println("Using modified gradient")
-
         # Bicubic Interpolation to get Lₙ(t, x₂)
         Lₙ₁_t_x₂ = grad.∂x(t, x[2])
         Lₙ₂_t_x₂ = grad.∂y(t, x[2])
 
         # Get K(t, x₂)
-        (sing_x1, sing_x2) = der_f_hankel((t, x[2]), k, α, Yε_cache)
+        (sing_x1, sing_x2) = grad_f_hankel((t, x[2]), k, α, Yε_cache)
         K₁_t_x₂ = Lₙ₁_t_x₂ + sing_x1
         K₂_t_x₂ = Lₙ₂_t_x₂ + sing_x2
 
@@ -174,5 +243,56 @@ function grad_qp_green_mod(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_
         grad = exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂)
 
         return grad
+    end
+end
+
+function grad_smooth_qp_green_mod(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
+                                  nb_terms=50) where {T1, T2}
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        singularity = im / 4 * k * Bessels.hankelh1(1, k * norm(x)) / norm(x)
+        return eigfunc_expansion_gradient(x, params; nb_terms=nb_terms) + singularity .* x
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ₁_t_x₂ = grad.∂x(t, x[2])
+        Lₙ₂_t_x₂ = grad.∂y(t, x[2])
+
+        return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂)
+    end
+end
+
+function hess_qp_green_mod(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
+                           nb_terms=50) where {T1, T2}
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        return eigfunc_expansion_hessian(x, params; nb_terms=nb_terms)
+    else
+        t = get_t(x[1])
+
+        println("Using modified hessian")
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Sₙ₁₁_t_x₂ = hess.∂x∂x(t, x[2])
+        Sₙ₁₂_t_x₂ = hess.∂x∂y(t, x[2])
+        Sₙ₂₂_t_x₂ = hess.∂y∂y(t, x[2])
+
+        # Get K(t, x₂)
+        (sing_x1x1, sing_x1x2, sing_x2x2) = hess_f_hankel((t, x[2]), k, α, Yε_cache)
+        K₁₁_t_x₂ = Sₙ₁₁_t_x₂ + sing_x1x1
+        K₁₂_t_x₂ = Sₙ₁₂_t_x₂ + sing_x1x2
+        K₂₂_t_x₂ = Sₙ₂₂_t_x₂ + sing_x2x2
+
+        # Calculate the approximate value of HG(x)
+        hess = exp(im * α * x[1]) .* SVector(K₁₁_t_x₂, K₁₂_t_x₂, K₂₂_t_x₂)
+
+        return hess
     end
 end

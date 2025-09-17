@@ -158,10 +158,26 @@ function f_hankel(x, k, α, cache::IntegrationCache)
     return exp(-im * α * x[1]) * im / 4 * Bessels.hankelh1(0, k * x_norm) * Yε(x_norm, cache)
 end
 
-function der_f_hankel(x, k, α, cache::IntegrationCache)
+function grad_f_hankel(x, k, α, cache::IntegrationCache)
     x_norm = norm(x)
     common_term = exp(-im * α * x[1]) * -im * k / 4 * Bessels.hankelh1(1, k * x_norm) / x_norm * Yε(x_norm, cache)
     return (common_term * x[1], common_term * x[2])
+end
+
+function hess_f_hankel(x, k, α, cache::IntegrationCache)
+    x_norm = norm(x)
+
+    cst_term_1 = -im / 4 * k^2
+    cst_term_2 = -im / 4 * k
+    bessel_term = Bessels.hankelh1(1, k * x_norm)
+
+    common_term = cst_term_1 * (bessel_term / (k * x_norm) - Bessels.hankelh1(2, k * x_norm)) / x_norm^2
+
+    f_x1x1 = common_term * x[1]^2 + cst_term_2 * bessel_term * (1 / x_norm - x[1]^2 / x_norm^3)
+    f_x1x2 = common_term * x[1] * x[2] + cst_term_2 * bessel_term * (-x[1] * x[2] / x_norm^3)
+    f_x2x2 = common_term * x[2]^2 + cst_term_2 * bessel_term * (1 / x_norm - x[2]^2 / x_norm^3)
+
+    return exp(-im * α * x[1]) .* (f_x1x1, f_x1x2, f_x2x2) .* Yε(x_norm, cache)
 end
 
 """

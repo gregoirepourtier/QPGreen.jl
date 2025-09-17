@@ -403,8 +403,7 @@ function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Y
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
         singularity = im / 4 * k * Bessels.hankelh1(1, k * norm(x)) / norm(x)
-        return eigfunc_expansion_derivative(x, params; nb_terms=nb_terms) +
-               singularity .* x
+        return eigfunc_expansion_gradient(x, params; nb_terms=nb_terms) .+ singularity .* x
     else
         t = get_t(x[1])
 
@@ -422,7 +421,7 @@ function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Y
 
             # Calculate the approximate value of ∇G_0(x)
             singularity = im / 4 * k * Bessels.hankelh1(1, k * norm(x)) / norm(x)
-            grad_G_0 = exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂) + singularity .* x
+            grad_G_0 = exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂) .+ singularity .* x
 
             return grad_G_0
         end

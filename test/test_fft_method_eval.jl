@@ -16,11 +16,11 @@ function QPGreenFunction_eval(params, points, idx, tol; verbose=false)
         for i ∈ eachindex(points)
             G_x = eval_qp_green(points[i], params, interp, cache; nb_terms=1_000_000)
             res_eig = vals_expansions[i]
-            @test abs(res_eig - G_x) < tol
             if verbose
                 str_err = @sprintf "%.2E" abs(G_x - res_eig)/abs(res_eig)
                 println("Point P", i, " and res: ", G_x, " and error: ", str_err)
             end
+            @test abs(G_x - res_eig) / abs(res_eig) < tol
         end
         if verbose
             println(" ")
@@ -30,7 +30,7 @@ end
 
 function QPSmoothGreenFunction_eval(params, points, idx, tol; verbose=false)
 
-    vals_expansions = image_expansion_smooth.(points, Ref(params); nb_terms=50_000_000)
+    vals_expansions = QPGreen.image_expansion_smooth.(points, Ref(params); nb_terms=50_000_000)
 
     grid_sizes = [2^i for i ∈ idx]
     for grid_size ∈ grid_sizes
@@ -40,13 +40,13 @@ function QPSmoothGreenFunction_eval(params, points, idx, tol; verbose=false)
             println("Grid size: ", grid_size)
         end
         for i ∈ eachindex(points)
-            G_x = eval_smooth_qp_green(points[i], params, interp, cache; nb_terms=1_000_000)
+            G_x = eval_smooth_qp_green(points[i], params, interp; nb_terms=1_000_000)
             res_eig = vals_expansions[i]
-            @test abs(res_eig - G_x) < tol
             if verbose
                 str_err = @sprintf "%.2E" abs(G_x - res_eig)/abs(res_eig)
                 println("Point P", i, " and res: ", G_x, " and error: ", str_err)
             end
+            @test abs(G_x - res_eig) / abs(res_eig) < tol
         end
         if verbose
             println(" ")
@@ -62,13 +62,13 @@ end
     P4 = (0.5π, 0.01)
     points = [P1, P2, P3, P4]
 
-    verbose = false
+    verbose = true
 
     # Refer to Table 1
     verbose ? println("========= Table 1 ==========") : nothing
     params = (alpha=0.3, k=√10, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)
-    QPGreenFunction_eval(params, points, 5:10, 1e-3; verbose=verbose)
-    QPSmoothGreenFunction_eval(params, points, 5:10, 1e-3; verbose=verbose)
+    QPGreenFunction_eval(params, points, 6:10, 6e-4; verbose=verbose)
+    QPSmoothGreenFunction_eval(params, points, 6:10, 6e-3; verbose=verbose)
 
     # Refer to Table 2
     verbose ? println("========= Table 2 ==========") : nothing

@@ -32,7 +32,7 @@ function image_expansion(z, params::NamedTuple; period=2π, nb_terms=50)
 end
 
 """
-    image_expansion_gradient(z, params::NamedTuple; period=2π, nb_terms=50)
+    image_expansion_grad(z, params::NamedTuple; period=2π, nb_terms=50)
 
 Compute the gradient of the α-quasi-periodic Green's function using the image expansion.
 
@@ -46,7 +46,7 @@ Compute the gradient of the α-quasi-periodic Green's function using the image e
   - The value of the gradient of the α-quasi-periodic Green's function for the 2D Helmholtz equation at
     the point z, computed via the basic image expansion.
 """
-function image_expansion_gradient(z, params::NamedTuple; period=2π, nb_terms=50)
+function image_expansion_grad(z, params::NamedTuple; period=2π, nb_terms=50)
     α, k = (params.alpha, params.k)
 
     # Compute the value of the derivative of the Green function by basic image expansion
@@ -69,7 +69,7 @@ function image_expansion_gradient(z, params::NamedTuple; period=2π, nb_terms=50
 end
 
 """
-    image_expansion_hessian(z, params::NamedTuple; period=2π, nb_terms=50)
+    image_expansion_hess(z, params::NamedTuple; period=2π, nb_terms=50)
 
 Compute the Hessian of the α-quasi-periodic Green's function using the image expansion.
 
@@ -83,7 +83,7 @@ Compute the Hessian of the α-quasi-periodic Green's function using the image ex
   - The value of the Hessian of the α-quasi-periodic Green's function for the 2D Helmholtz equation at
     the point z, computed via the basic image expansion.
 """
-function image_expansion_hessian(z, params::NamedTuple; period=2π, nb_terms=50)
+function image_expansion_hess(z, params::NamedTuple; period=2π, nb_terms=50)
     α, k = (params.alpha, params.k)
 
     # Compute the value of the second derivative of the Green function by basic image expansion
@@ -158,7 +158,7 @@ function image_expansion_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
 end
 
 """
-    image_expansion_gradient_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
+    image_expansion_grad_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
 
 Compute the gradient of the smooth α-quasi-periodic Green's function using the image expansion.
 
@@ -172,7 +172,7 @@ Compute the gradient of the smooth α-quasi-periodic Green's function using the 
   - The value of the gradient of the smooth α-quasi-periodic Green's function for 2D Helmholtz equation
     at the point z, computed via the basic image expansion.
 """
-function image_expansion_gradient_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
+function image_expansion_grad_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
     α, k = (params.alpha, params.k)
 
     # Compute the value of the gradient of the Green function by basic image expansion
@@ -197,7 +197,7 @@ function image_expansion_gradient_smooth(z, params::NamedTuple; period=2π, nb_t
 end
 
 """
-    image_expansion_hessian_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
+    image_expansion_hess_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
 
 Compute the Hessian of the smooth α-quasi-periodic Green's function using the image expansion.
 
@@ -211,7 +211,7 @@ Compute the Hessian of the smooth α-quasi-periodic Green's function using the i
   - The value of the Hessian of the smooth α-quasi-periodic Green's function for the 2D Helmholtz equation at
     the point z, computed via the basic image expansion.
 """
-function image_expansion_hessian_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
+function image_expansion_hess_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
     α, k = (params.alpha, params.k)
 
     # Compute the value of the second derivative of the Green function by basic image expansion
@@ -291,7 +291,7 @@ function eigfunc_expansion(z, params::NamedTuple; period=2π, nb_terms=50)
 end
 
 """
-    eigfunc_expansion_gradient(z, params::NamedTuple; period=2π, nb_terms=50)
+    eigfunc_expansion_grad(z, params::NamedTuple; period=2π, nb_terms=50)
 
 Compute the gradient of the α-quasi-periodic Green's function using the eigenfunction expansion.
 
@@ -305,7 +305,7 @@ Compute the gradient of the α-quasi-periodic Green's function using the eigenfu
   - The value of the gradient of the α-quasi-periodic Green's function for 2D Helmholtz equation at
     the point z, computed via the basic eigenfunction expansion.
 """
-function eigfunc_expansion_gradient(z, params::NamedTuple; period=2π, nb_terms=50)
+function eigfunc_expansion_grad(z, params::NamedTuple; period=2π, nb_terms=50)
     α, k = (params.alpha, params.k)
 
     # Compute the value of the gradient of the Green function by basic eigenfunction expansion
@@ -334,7 +334,7 @@ end
 
 
 """
-    eigfunc_expansion_hessian(z, params::NamedTuple; period=2π, nb_terms=50)
+    eigfunc_expansion_hess(z, params::NamedTuple; period=2π, nb_terms=50)
 
 Compute the Hessian of the α-quasi-periodic Green's function using the eigenfunction expansion.
 
@@ -348,7 +348,7 @@ Compute the Hessian of the α-quasi-periodic Green's function using the eigenfun
   - The value of the hessian of the α-quasi-periodic Green's function for 2D Helmholtz equation at
     the point z, computed via the basic eigenfunction expansion.
 """
-function eigfunc_expansion_hessian(z, params::NamedTuple; period=2π, nb_terms=50)
+function eigfunc_expansion_hess(z, params::NamedTuple; period=2π, nb_terms=50)
     α, k = (params.alpha, params.k)
 
     # Compute the value of the second derivative of the Green function by basic eigenfunction expansion

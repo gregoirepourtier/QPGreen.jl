@@ -122,7 +122,7 @@ function image_expansion_hessian(z, params::NamedTuple; period=2π, nb_terms=50)
                              common_term_4 * (1 / rₙ - z[2]^2 / rₙ^3)
     end
 
-    SMatrix{2, 2}(G_primeprime_x1x1, G_primeprime_x1x2, G_primeprime_x1x2, G_primeprime_x2x2)
+    SVector(G_primeprime_x1x1, G_primeprime_x1x2, G_primeprime_x2x2)
 end
 
 """
@@ -194,6 +194,62 @@ function image_expansion_gradient_smooth(z, params::NamedTuple; period=2π, nb_t
     end
 
     SVector(G_prime_x1, G_prime_x2)
+end
+
+"""
+    image_expansion_hessian_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
+
+Compute the Hessian of the smooth α-quasi-periodic Green's function using the image expansion.
+
+# Input arguments
+
+  - z: coordinates of the difference between the target point and source point.
+  - params: named tuple of the physical and numerical parameters for the problem definition.
+
+# Returns
+
+  - The value of the Hessian of the smooth α-quasi-periodic Green's function for the 2D Helmholtz equation at
+    the point z, computed via the basic image expansion.
+"""
+function image_expansion_hessian_smooth(z, params::NamedTuple; period=2π, nb_terms=50)
+    α, k = (params.alpha, params.k)
+
+    # Compute the value of the second derivative of the Green function by basic image expansion
+    cst_term1 = -im / 4 * k^2
+    cst_term2 = -im / 4 * k
+
+    G_primeprime_x1x1 = zero(Complex{eltype(z)})
+    G_primeprime_x1x2 = zero(Complex{eltype(z)})
+    G_primeprime_x2x2 = zero(Complex{eltype(z)})
+
+    for n ∈ 1:nb_terms
+        r₋ₙ = √((z[1] - period * -n)^2 + z[2]^2)
+        rₙ = √((z[1] - period * n)^2 + z[2]^2)
+
+        common_term_1 = cst_term1 * exp(im * period * α * -n) *
+                        (Bessels.hankelh1(1, k * r₋ₙ) / (k * r₋ₙ) - Bessels.hankelh1(2, k * r₋ₙ)) / r₋ₙ^2
+        common_term_2 = cst_term2 * exp(im * period * α * -n) * Bessels.hankelh1(1, k * r₋ₙ)
+        common_term_3 = cst_term1 * exp(im * period * α * n) *
+                        (Bessels.hankelh1(1, k * rₙ) / (k * rₙ) - Bessels.hankelh1(2, k * rₙ)) / rₙ^2
+        common_term_4 = cst_term2 * exp(im * period * α * n) * Bessels.hankelh1(1, k * rₙ)
+
+        G_primeprime_x1x1 += common_term_1 * (z[1] - period * -n)^2 +
+                             common_term_2 * (1 / r₋ₙ - (z[1] - period * -n)^2 / r₋ₙ^3) +
+                             common_term_3 * (z[1] - period * n)^2 +
+                             common_term_4 * (1 / rₙ - (z[1] - period * n)^2 / rₙ^3)
+
+        G_primeprime_x1x2 += common_term_1 * (z[1] - period * -n) * z[2] +
+                             common_term_2 * (-(z[1] - period * -n) * z[2] / r₋ₙ^3) +
+                             common_term_3 * (z[1] - period * n) * z[2] +
+                             common_term_4 * (-(z[1] - period * n) * z[2] / rₙ^3)
+
+        G_primeprime_x2x2 += common_term_1 * z[2]^2 +
+                             common_term_2 * (1 / r₋ₙ - z[2]^2 / r₋ₙ^3) +
+                             common_term_3 * z[2]^2 +
+                             common_term_4 * (1 / rₙ - z[2]^2 / rₙ^3)
+    end
+
+    SVector(G_primeprime_x1x1, G_primeprime_x1x2, G_primeprime_x2x2)
 end
 
 
@@ -319,5 +375,5 @@ function eigfunc_expansion_hessian(z, params::NamedTuple; period=2π, nb_terms=5
                              -βₙ * exp_term_plus
     end
 
-    SMatrix{2, 2}(G_primeprime_x1x1, G_primeprime_x1x2, G_primeprime_x1x2, G_primeprime_x2x2)
+    SVector(G_primeprime_x1x1, G_primeprime_x1x2, G_primeprime_x2x2)
 end

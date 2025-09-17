@@ -200,7 +200,6 @@ function eval_qp_green_mod(x, params::NamedTuple, value_interpolator::T, Yε_cac
     end
 end
 
-
 function eval_smooth_qp_green_mod(x, params::NamedTuple, value_interpolator::T; nb_terms=50) where {T}
 
     α, c, k = (params.alpha, params.c, params.k)
@@ -246,7 +245,7 @@ function grad_qp_green_mod(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_
     end
 end
 
-function grad_smooth_qp_green_mod(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
+function grad_smooth_qp_green_mod(x, params::NamedTuple, grad::NamedTuple{T1, T2};
                                   nb_terms=50) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
@@ -254,7 +253,7 @@ function grad_smooth_qp_green_mod(x, params::NamedTuple, grad::NamedTuple{T1, T2
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
         singularity = im / 4 * k * Bessels.hankelh1(1, k * norm(x)) / norm(x)
-        return eigfunc_expansion_gradient(x, params; nb_terms=nb_terms) + singularity .* x
+        return eigfunc_expansion_gradient(x, params; nb_terms=nb_terms) + singularity .* x # check allocations
     else
         t = get_t(x[1])
 
@@ -277,22 +276,67 @@ function hess_qp_green_mod(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_
     else
         t = get_t(x[1])
 
-        println("Using modified hessian")
-
         # Bicubic Interpolation to get Lₙ(t, x₂)
-        Sₙ₁₁_t_x₂ = hess.∂x∂x(t, x[2])
-        Sₙ₁₂_t_x₂ = hess.∂x∂y(t, x[2])
-        Sₙ₂₂_t_x₂ = hess.∂y∂y(t, x[2])
+        Lₙ₁₁_t_x₂ = hess.∂x∂x(t, x[2])
+        Lₙ₁₂_t_x₂ = hess.∂x∂y(t, x[2])
+        Lₙ₂₂_t_x₂ = hess.∂y∂y(t, x[2])
 
         # Get K(t, x₂)
         (sing_x1x1, sing_x1x2, sing_x2x2) = hess_f_hankel((t, x[2]), k, α, Yε_cache)
-        K₁₁_t_x₂ = Sₙ₁₁_t_x₂ + sing_x1x1
-        K₁₂_t_x₂ = Sₙ₁₂_t_x₂ + sing_x1x2
-        K₂₂_t_x₂ = Sₙ₂₂_t_x₂ + sing_x2x2
+        K₁₁_t_x₂ = Lₙ₁₁_t_x₂ + sing_x1x1
+        K₁₂_t_x₂ = Lₙ₁₂_t_x₂ + sing_x1x2
+        K₂₂_t_x₂ = Lₙ₂₂_t_x₂ + sing_x2x2
 
         # Calculate the approximate value of HG(x)
         hess = exp(im * α * x[1]) .* SVector(K₁₁_t_x₂, K₁₂_t_x₂, K₂₂_t_x₂)
 
         return hess
+    end
+end
+
+function hess_smooth_qp_green_mod(x, params::NamedTuple, hess::NamedTuple{T1, T2};
+                                  nb_terms=50) where {T1, T2}
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+
+        # Precompute common terms
+        r = norm(Z)
+        r2 = r^2
+        r3 = r2 * r
+        kr = k * r
+
+        # Compute Hankel functions once
+        h1 = Bessels.hankelh1(1, kr)
+        h2 = Bessels.hankelh1(2, kr)
+
+        # Precompute common factors
+        common_factor1 = -im / 4 * k^2 * (h1 / kr - h2) / r2
+        common_factor2 = -im / 4 * k * h1 / r3
+
+        # Extract coordinates
+        x, y = Z[1], Z[2]
+        x2, y2 = x^2, y^2
+        xy = x * y
+
+        # Compute matrix elements
+        m11 = common_factor1 * x2 + common_factor2 * (r2 - x2)
+        m12 = common_factor1 * xy - common_factor2 * xy
+        m22 = common_factor1 * y2 + common_factor2 * (r2 - y2)
+
+        singularity = SVector(m11, m12, m22)
+
+        return eigfunc_expansion_hessian(x, params; nb_terms=nb_terms) + singularity
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ₁₁_t_x₂ = hess.∂x∂x(t, x[2])
+        Lₙ₁₂_t_x₂ = hess.∂x∂y(t, x[2])
+        Lₙ₂₂_t_x₂ = hess.∂y∂y(t, x[2])
+
+        return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂, Lₙ₁₂_t_x₂, Lₙ₂₂_t_x₂)
     end
 end

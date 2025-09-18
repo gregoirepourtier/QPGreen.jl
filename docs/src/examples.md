@@ -45,7 +45,7 @@ This method relies on two steps: a **preparation** step and an **evaluation** st
 The preparation step, independent of evaluating the function at specific points, computes the necessary Fourier coefficients and produces an interpolation object for function and gradient evaluation (if the flag is true), along with a cache of integral approximations. This step needs to be performed only once for a fixed set of parameters and grid resolution.
 ```@example FFT_based_algorithm
 # Preparation Step
-value_interpolator, grad_interpolator, cache = init_qp_green_fft(params, grid_size; derivative=true)
+value_interpolator, grad_interpolator, cache = init_qp_green_fft(params, grid_size; grad=true)
 nothing # hide
 ```
 

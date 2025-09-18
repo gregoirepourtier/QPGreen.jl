@@ -286,13 +286,15 @@ Compute the smooth α-quasi-periodic Green's function ``G_0(x)`` (i.e. without t
 
   - `G_0`: The approximate value of the quasiperiodic Green's function at point `x`
 """
-function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T; nb_terms=50) where {T}
+function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=50) where {T}
 
     α, c, k = (params.alpha, params.c, params.k)
 
+    x_norm = norm(x)
+
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
-        singularity = im / 4 * Bessels.hankelh1(0, k * norm(x))
+        singularity = im / 4 * Bessels.hankelh1(0, k * x_norm)
         return eigfunc_expansion(x, params; nb_terms=nb_terms) - singularity
     else
         t = get_t(x[1])
@@ -300,7 +302,14 @@ function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T; nb_t
         # Bicubic Interpolation to get Lₙ(t, x₂)
         Lₙ_t_x₂ = value_interpolator(t, x[2])
 
-        return exp(im * α * x[1]) * Lₙ_t_x₂
+        if x_norm <= Yε_cache.params.a
+            return exp(im * α * x[1]) * Lₙ_t_x₂
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) * Lₙ_t_x₂ - im / 4 * Bessels.hankelh1(0, k * x_norm)
+        else
+            K_t_x₂ = Lₙ_t_x₂ + f_hankel((t, x[2]), k, α, Yε_cache)
+            return exp(im * α * x[1]) * K_t_x₂ - im / 4 * Bessels.hankelh1(0, k * norm((t, x[2])))
+        end
     end
 end
 
@@ -386,14 +395,16 @@ Compute the gradient of the smooth α-quasi-periodic Green's function using the 
 
   - `∇G_0`: The approximate value of the gradient of the smooth quasiperiodic Green's function at point `x`
 """
-function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2};
+function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
                               nb_terms=50) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 
+    x_norm = norm(x)
+
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
-        singularity = im / 4 * k * Bessels.hankelh1(1, k * norm(x)) / norm(x)
+        singularity = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
         return eigfunc_expansion_gradient(x, params; nb_terms=nb_terms) + singularity .* x # check allocations
     else
         t = get_t(x[1])
@@ -402,7 +413,19 @@ function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2};
         Lₙ₁_t_x₂ = grad.∂x(t, x[2])
         Lₙ₂_t_x₂ = grad.∂y(t, x[2])
 
-        return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂)
+        if x_norm <= Yε_cache.params.a
+            return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂)
+        elseif x_norm >= Yε_cache.params.b
+            singularity = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
+            return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂) + singularity .* x
+        else
+            (sing_x1, sing_x2) = grad_f_hankel((t, x[2]), k, α, Yε_cache)
+            K₁_t_x₂ = Lₙ₁_t_x₂ + sing_x1
+            K₂_t_x₂ = Lₙ₂_t_x₂ + sing_x2
+
+            singularity = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
+            return exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂) + singularity .* x
+        end
     end
 end
 
@@ -491,41 +514,17 @@ Compute the Hessian of the smooth α-quasi-periodic Green's function ``G(x)`` us
 
   - `HG`: The approximate value of the Hessian of the smooth quasiperiodic Green's function at point `x`
 """
-function hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2};
+function hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
                               nb_terms=50) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 
+    x_norm = norm(x)
+
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
-
-        # Precompute common terms
-        r = norm(Z)
-        r2 = r^2
-        r3 = r2 * r
-        kr = k * r
-
-        # Compute Hankel functions once
-        h1 = Bessels.hankelh1(1, kr)
-        h2 = Bessels.hankelh1(2, kr)
-
-        # Precompute common factors
-        common_factor1 = -im / 4 * k^2 * (h1 / kr - h2) / r2
-        common_factor2 = -im / 4 * k * h1 / r3
-
-        # Extract coordinates
-        x, y = Z[1], Z[2]
-        x2, y2 = x^2, y^2
-        xy = x * y
-
-        # Compute matrix elements
-        m11 = common_factor1 * x2 + common_factor2 * (r2 - x2)
-        m12 = common_factor1 * xy - common_factor2 * xy
-        m22 = common_factor1 * y2 + common_factor2 * (r2 - y2)
-
-        singularity = SVector(m11, m12, m22)
-
-        return eigfunc_expansion_hessian(x, params; nb_terms=nb_terms) + singularity
+        singularity = singularity_hessian(x, x_norm, k)
+        return eigfunc_expansion_hessian(x, params; nb_terms=nb_terms) - singularity
     else
         t = get_t(x[1])
 
@@ -534,6 +533,20 @@ function hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2};
         Lₙ₁₂_t_x₂ = hess.∂x∂y(t, x[2])
         Lₙ₂₂_t_x₂ = hess.∂y∂y(t, x[2])
 
-        return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂, Lₙ₁₂_t_x₂, Lₙ₂₂_t_x₂)
+        if x_norm <= Yε_cache.params.a
+            return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂, Lₙ₁₂_t_x₂, Lₙ₂₂_t_x₂)
+        elseif x_norm >= Yε_cache.params.b
+            singularity = singularity_hessian(x, x_norm, k)
+            return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂, Lₙ₁₂_t_x₂, Lₙ₂₂_t_x₂) - singularity
+        else
+            (sing_x1x1, sing_x1x2, sing_x2x2) = hess_f_hankel((t, x[2]), k, α, Yε_cache)
+            K₁₁_t_x₂ = Lₙ₁₁_t_x₂ + sing_x1x1
+            K₁₂_t_x₂ = Lₙ₁₂_t_x₂ + sing_x1x2
+            K₂₂_t_x₂ = Lₙ₂₂_t_x₂ + sing_x2x2
+
+            singularity = singularity_hessian(x, x_norm, k)
+
+            return exp(im * α * x[1]) .* SVector(K₁₁_t_x₂, K₁₂_t_x₂, K₂₂_t_x₂) - singularity
+        end
     end
 end

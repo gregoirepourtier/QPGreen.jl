@@ -158,12 +158,44 @@ function f_hankel(x, k, α, cache::IntegrationCache)
     return exp(-im * α * x[1]) * im / 4 * Bessels.hankelh1(0, k * x_norm) * Yε(x_norm, cache)
 end
 
+"""
+    grad_f_hankel(x, k, α, cache::IntegrationCache)
+
+Calculate the gradient of the function `f_hankel`.
+
+# Input arguments
+
+    - `x`: point at which the function is evaluated
+    - `k`: wavenumber
+    - `α`: quasi-periodicity parameter
+    - `cache`: cache for the cut-off function `Yε`
+
+# Returns
+
+    - The value of the gradient of `f_hankel` at the point `x`.
+"""
 function grad_f_hankel(x, k, α, cache::IntegrationCache)
     x_norm = norm(x)
     common_term = exp(-im * α * x[1]) * -im * k / 4 * Bessels.hankelh1(1, k * x_norm) / x_norm * Yε(x_norm, cache)
     return (common_term * x[1], common_term * x[2])
 end
 
+"""
+    hess_f_hankel(x, k, α, cache::IntegrationCache)
+
+Calculate the Hessian of the function `f_hankel`.
+
+# Input arguments
+
+    - `x`: point at which the function is evaluated
+    - `k`: wavenumber
+    - `α`: quasi-periodicity parameter
+    - `cache`: cache for the cut-off function `Yε`
+
+# Returns
+
+    - The value of the Hessian of `f_hankel` at the point `x`.
+"""
 function hess_f_hankel(x, k, α, cache::IntegrationCache)
     x_norm = norm(x)
 
@@ -405,4 +437,36 @@ function check_compatibility(alpha, k)
     if isinteger(n1) || isinteger(n2)
         error("Incompatible alpha and k: some βₙ will be zero.")
     end
+end
+
+"""
+    singularity_hessian(Z, r, k)
+
+Calculate the Hessian of the singularity of the QP Green function.
+"""
+function singularity_hessian(Z, r, k)
+    # Precompute common terms
+    r2 = r^2
+    r3 = r2 * r
+    kr = k * r
+
+    # Compute Hankel functions once
+    h1 = Bessels.hankelh1(1, kr)
+    h2 = Bessels.hankelh1(2, kr)
+
+    # Precompute common factors
+    common_factor1 = -im / 4 * k^2 * (h1 / kr - h2) / r2
+    common_factor2 = -im / 4 * k * h1 / r3
+
+    # Extract coordinates
+    x, y = Z[1], Z[2]
+    x2, y2 = x^2, y^2
+    xy = x * y
+
+    # Compute matrix elements
+    m11 = common_factor1 * x2 + common_factor2 * (r2 - x2)
+    m12 = common_factor1 * xy - common_factor2 * xy
+    m22 = common_factor1 * y2 + common_factor2 * (r2 - y2)
+
+    SVector(m11, m12, m22)
 end

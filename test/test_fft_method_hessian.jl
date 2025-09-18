@@ -112,7 +112,7 @@ end
     P6 = SVector(0.5π, 0.1)
     points = [P1, P2, P3, P4, P5, P6]
 
-    verbose = true
+    verbose = false
 
     verbose ? println("========= Tests 1 ==========") : nothing
     params = (alpha=0.3, k=√10, c=0.6, c_tilde=1.0, epsilon=0.4341, order=8)

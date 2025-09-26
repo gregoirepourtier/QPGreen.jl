@@ -12,6 +12,16 @@ function Φ(x, k, cache::IntegrationCache)
 end
 
 """
+    g_sing(x_norm, k, cache::IntegrationCache)
+
+Calculate the function g (removal of the singularity - gradient case - in the Fourier space in the case where you use
+the Hankel function directly and not its asymptotic form).
+"""
+function g_sing(x_norm, k, cache::IntegrationCache)
+    return im / 4 * Bessels.hankelh1(0, k * x_norm) * Yε_1st_der(x_norm, cache) / x_norm
+end
+
+"""
     Φ₁(x, cache::IntegrationCache)
 
 Calculate the function Φ₁ (removal of the singularity in the Fourier space).
@@ -138,46 +148,47 @@ function get_F̂ⱼ(j₁, j₂, c̃, Φ̂₁ⱼ, Φ̂₂ⱼ, F̂₁ⱼ₀::Compl
 end
 
 """
-    f_hankel(x, k, α, cache::IntegrationCache)
+    f_hankel(x_norm, k, cache::IntegrationCache)
 
 Calculate the function `f_hankel`.
 
 # Input arguments
 
-    - `x`: point at which the function is evaluated
+    - `x_norm`: norm of the point at which the function is evaluated
     - `k`: wavenumber
-    - `α`: quasi-periodicity parameter
     - `cache`: cache for the cut-off function `Yε`
 
 # Returns
 
+    - Evaluation of hankel function.
     - The value of the function `f_hankel` at the point `x`.
 """
-function f_hankel(x, k, α, cache::IntegrationCache)
-    x_norm = norm(x)
-    return exp(-im * α * x[1]) * im / 4 * Bessels.hankelh1(0, k * x_norm) * Yε(x_norm, cache)
+function f_hankel(x_norm, k, cache::IntegrationCache)
+    bessel_term = im / 4 * Bessels.hankelh1(0, k * x_norm)
+
+    (bessel_term, bessel_term * Yε(x_norm, cache))
 end
 
 """
-    grad_f_hankel(x, k, α, cache::IntegrationCache)
+    grad_f_hankel(x_norm, k, cache::IntegrationCache)
 
 Calculate the gradient of the function `f_hankel`.
 
 # Input arguments
 
-    - `x`: point at which the function is evaluated
+    - `x_norm`: norm of the point at which the function is evaluated
     - `k`: wavenumber
-    - `α`: quasi-periodicity parameter
     - `cache`: cache for the cut-off function `Yε`
 
 # Returns
 
+    - Evaluation of hankel function.
     - The value of the gradient of `f_hankel` at the point `x`.
 """
-function grad_f_hankel(x, k, α, cache::IntegrationCache)
-    x_norm = norm(x)
-    common_term = exp(-im * α * x[1]) * -im * k / 4 * Bessels.hankelh1(1, k * x_norm) / x_norm * Yε(x_norm, cache)
-    return (common_term * x[1], common_term * x[2])
+function grad_f_hankel(x_norm, k, cache::IntegrationCache)
+    bessel_term = -im * k / 4 * Bessels.hankelh1(1, k * x_norm) / x_norm
+    common_term = bessel_term * Yε(x_norm, cache)
+    return (bessel_term, common_term)
 end
 
 """

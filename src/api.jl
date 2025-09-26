@@ -60,31 +60,59 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
     Φ_eval = Matrix{Complex{T}}(undef, N, N)
 
     # Initialize derivative-specific arrays
+    g_eval_sing_x1 = grad ? similar(Φ_eval) : nothing
+    g_eval_sing_x2 = grad ? similar(Φ_eval) : nothing
     L̂ⱼ₁ = grad ? similar(L̂ⱼ) : nothing
     L̂ⱼ₂ = grad ? similar(L̂ⱼ) : nothing
     L̂ⱼ₁₁ = hess ? similar(L̂ⱼ) : nothing
     L̂ⱼ₁₂ = hess ? similar(L̂ⱼ) : nothing
     L̂ⱼ₂₂ = hess ? similar(L̂ⱼ) : nothing
 
-    @inbounds @batch for i ∈ axes(x_grid, 1), j ∈ axes(y_grid, 1)
-        pt = SVector(x_grid[i], y_grid[j])
-        r = norm(pt)
-        Φ_eval[i, j] = iszero(r) ? zero(Complex{T}) : Φ(r, k, Yε_cache)
+    if hess
+        @inbounds @batch for i ∈ axes(x_grid, 1), j ∈ axes(y_grid, 1)
+            pt = SVector(x_grid[i], y_grid[j])
+            r = norm(pt)
+            Φ_eval[i, j] = iszero(r) ? zero(Complex{T}) : Φ(r, k, Yε_cache)
+            g_eval_sing_x1[i, j] = iszero(r) ? zero(Complex{T}) : g_sing(r, k, Yε_cache)
+            g_eval_sing_x2[i, j] = g_eval_sing_x1[i, j]
+        end
+    elseif grad && !hess
+        @inbounds @batch for i ∈ axes(x_grid, 1), j ∈ axes(y_grid, 1)
+            pt = SVector(x_grid[i], y_grid[j])
+            r = norm(pt)
+            Φ_eval[i, j] = iszero(r) ? zero(Complex{T}) : Φ(r, k, Yε_cache)
+            g_eval_sing_x1[i, j] = iszero(r) ? zero(Complex{T}) : g_sing(r, k, Yε_cache)
+            g_eval_sing_x2[i, j] = g_eval_sing_x1[i, j]
+        end
+    else
+        @inbounds @batch for i ∈ axes(x_grid, 1), j ∈ axes(y_grid, 1)
+            pt = SVector(x_grid[i], y_grid[j])
+            r = norm(pt)
+            Φ_eval[i, j] = iszero(r) ? zero(Complex{T}) : Φ(r, k, Yε_cache)
+        end
     end
     Φ_eval .*= exp.(-im * α .* x_grid)
 
     # Preallocate frequency-domain matrices (Hermitian-symmetric due to rfft)
     Φ̂_freq = Matrix{Complex{T}}(undef, N, N)
+    Ĝ_x1_freq = grad ? similar(Φ̂_freq) : nothing
+    Ĝ_x2_freq = grad ? similar(Φ̂_freq) : nothing
 
     ## Transform to frequency domain with proper normalization
     # Shift spatial samples to FFT convention
     Φ̂_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(Φ_eval)))
+    if grad
+        g_eval_sing_x1 .*= exp.(-im * α .* x_grid) .* x_grid
+        g_eval_sing_x2 .*= exp.(-im * α .* x_grid) * y_grid'
+        Ĝ_x1_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(g_eval_sing_x1)))
+        Ĝ_x2_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(g_eval_sing_x2)))
+    end
 
     # Precompute FFT plan (reused for each column)
     fft_plan = plan_fft!(fft_cache.shift_sample_eval_int)
 
     # Process each frequency component
-    if hess && grad
+    if hess
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
@@ -97,26 +125,8 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
 
                 L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
 
-                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - im * (α + j₁) * F̂ⱼ
-                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * F̂ⱼ
-
-                L̂ⱼ₁₁[j, i] = -(α + j₁)^2 * K̂ⱼ[j, i] + (α + j₁)^2 * F̂ⱼ
-                L̂ⱼ₁₂[j, i] = -(α + j₁) * j₂ * (π / c̃) * K̂ⱼ[j, i] + (α + j₁) * j₂ * (π / c̃) * F̂ⱼ
-                L̂ⱼ₂₂[j, i] = -(j₂ * π / c̃)^2 * K̂ⱼ[j, i] + (j₂ * π / c̃)^2 * F̂ⱼ
-            end
-        end
-    elseif hess && !grad
-        @inbounds for i ∈ 1:N
-            j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
-
-            # Compute L̂ⱼ, L̂ⱼ₁₁, L̂ⱼ₁₂, L̂ⱼ₂₂ coefficients
-            @inbounds @batch for j ∈ 1:N
-                j₂ = fft_cache.j_idx[j]
-
-                cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
-                F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
-
-                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
+                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - im * (α + j₁) * F̂ⱼ + Ĝ_x1_freq[i, j]
+                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * F̂ⱼ + Ĝ_x2_freq[i, j]
 
                 L̂ⱼ₁₁[j, i] = -(α + j₁)^2 * K̂ⱼ[j, i] + (α + j₁)^2 * F̂ⱼ
                 L̂ⱼ₁₂[j, i] = -(α + j₁) * j₂ * (π / c̃) * K̂ⱼ[j, i] + (α + j₁) * j₂ * (π / c̃) * F̂ⱼ
@@ -135,8 +145,9 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
 
                 L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
-                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - im * (α + j₁) * F̂ⱼ
-                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * F̂ⱼ
+
+                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - im * (α + j₁) * F̂ⱼ + Ĝ_x1_freq[i, j]
+                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * F̂ⱼ + Ĝ_x2_freq[i, j]
             end
         end
     else
@@ -236,7 +247,7 @@ Compute the quasiperiodic Green's function ``G(x)`` using the FFT-based method [
 
   - `G`: The approximate value of the quasiperiodic Green's function at point `x`
 """
-function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=50) where {T}
+function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=10) where {T}
 
     α, k, c = (params.alpha, params.k, params.c)
 
@@ -249,13 +260,19 @@ function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::
         # Bicubic Interpolation to get Lₙ(t, x₂)
         Lₙ_t_x₂ = value_interpolator(t, x[2])
 
+        x_norm = norm((t, x[2]))
+
         # Get K(t, x₂)
-        K_t_x₂ = Lₙ_t_x₂ + f_hankel((t, x[2]), k, α, Yε_cache)
-
-        # Calculate the approximate value of G(x)
-        G_x = exp(im * α * x[1]) * K_t_x₂
-
-        return G_x
+        if x_norm <= Yε_cache.params.a
+            K_t_x₂ = Lₙ_t_x₂
+            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * Bessels.hankelh1(0, k * x_norm))
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) * Lₙ_t_x₂
+        else
+            _, sing = f_hankel(x_norm, k, Yε_cache)
+            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            return exp(im * α * x[1]) * K_t_x₂
+        end
     end
 end
 
@@ -286,29 +303,37 @@ Compute the smooth α-quasi-periodic Green's function ``G_0(x)`` (i.e. without t
 
   - `G_0`: The approximate value of the quasiperiodic Green's function at point `x`
 """
-function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=50) where {T}
+function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=10) where {T}
 
     α, c, k = (params.alpha, params.c, params.k)
 
-    x_norm = norm(x)
-
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
+        x_norm = norm(x)
         singularity = im / 4 * Bessels.hankelh1(0, k * x_norm)
         return eigfunc_expansion(x, params; nb_terms=nb_terms) - singularity
     else
         t = get_t(x[1])
 
+        x_norm = norm((t, x[2]))
+
         # Bicubic Interpolation to get Lₙ(t, x₂)
         Lₙ_t_x₂ = value_interpolator(t, x[2])
 
         if x_norm <= Yε_cache.params.a
-            return exp(im * α * x[1]) * Lₙ_t_x₂
+            if t == x[1]
+                return exp(im * α * x[1]) * Lₙ_t_x₂
+            else
+                bessel_term = im / 4 * Bessels.hankelh1(0, k * x_norm)
+                K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * bessel_term
+                return exp(im * α * x[1]) * K_t_x₂ - bessel_term
+            end
         elseif x_norm >= Yε_cache.params.b
             return exp(im * α * x[1]) * Lₙ_t_x₂ - im / 4 * Bessels.hankelh1(0, k * x_norm)
         else
-            K_t_x₂ = Lₙ_t_x₂ + f_hankel((t, x[2]), k, α, Yε_cache)
-            return exp(im * α * x[1]) * K_t_x₂ - im / 4 * Bessels.hankelh1(0, k * norm((t, x[2])))
+            bessel_term, sing = f_hankel(x_norm, k, Yε_cache)
+            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            return exp(im * α * x[1]) * K_t_x₂ - bessel_term
         end
     end
 end
@@ -342,29 +367,41 @@ Compute the gradient of the α-quasi-periodic Green's function ``G(x)`` using th
   - `∇G`: The approximate value of the gradient of the quasiperiodic Green's function at point `x`
 """
 function grad_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                       nb_terms=50) where {T1, T2}
+                       nb_terms=10) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
-        return eigfunc_expansion_derivative(x, params; nb_terms=nb_terms)
+        return eigfunc_expansion_grad(x, params; nb_terms=nb_terms)
     else
         t = get_t(x[1])
+
+        x_norm = norm((t, x[2]))
 
         # Bicubic Interpolation to get Lₙ(t, x₂)
         Lₙ₁_t_x₂ = grad.∂x(t, x[2])
         Lₙ₂_t_x₂ = grad.∂y(t, x[2])
 
-        # Get K(t, x₂)
-        (sing_x1, sing_x2) = grad_f_hankel((t, x[2]), k, α, Yε_cache)
-        K₁_t_x₂ = Lₙ₁_t_x₂ + sing_x1
-        K₂_t_x₂ = Lₙ₂_t_x₂ + sing_x2
+        if x_norm <= Yε_cache.params.a
+            common_term = exp(-im * α * t) * -im * k / 4 * Bessels.hankelh1(1, k * x_norm) / x_norm
+            sing_x1 = common_term * t
+            sing_x2 = common_term * x[2]
 
-        # Calculate the approximate value of ∇G(x)
-        grad = exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂)
+            return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂ + sing_x1, Lₙ₂_t_x₂ + sing_x2)
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂)
+        else
+            (bessel_term, sing) = grad_f_hankel(x_norm, k, Yε_cache)
+            exp_term = exp(-im * α * t)
+            K₁_t_x₂ = Lₙ₁_t_x₂ + exp_term * sing * t
+            K₂_t_x₂ = Lₙ₂_t_x₂ + exp_term * sing * x[2]
 
-        return grad
+            # Calculate the approximate value of ∇G(x)
+            grad = exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂)
+
+            return grad
+        end
     end
 end
 
@@ -396,35 +433,46 @@ Compute the gradient of the smooth α-quasi-periodic Green's function using the 
   - `∇G_0`: The approximate value of the gradient of the smooth quasiperiodic Green's function at point `x`
 """
 function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                              nb_terms=50) where {T1, T2}
+                              nb_terms=10) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 
-    x_norm = norm(x)
-
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
+        x_norm = norm(x)
+
         singularity = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
-        return eigfunc_expansion_gradient(x, params; nb_terms=nb_terms) + singularity .* x # check allocations
+        return eigfunc_expansion_grad(x, params; nb_terms=nb_terms) + singularity .* SVector(x)
     else
         t = get_t(x[1])
+
+        x_norm = norm((t, x[2]))
 
         # Bicubic Interpolation to get Lₙ(t, x₂)
         Lₙ₁_t_x₂ = grad.∂x(t, x[2])
         Lₙ₂_t_x₂ = grad.∂y(t, x[2])
 
         if x_norm <= Yε_cache.params.a
-            return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂)
+            if t == x[1]
+                return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂)
+            else
+                bessel_term = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
+                common_term = exp(-im * α * t) * -bessel_term
+                sing_x1 = common_term * t
+                sing_x2 = common_term * x[2]
+
+                return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂ + sing_x1, Lₙ₂_t_x₂ + sing_x2) + bessel_term .* x
+            end
         elseif x_norm >= Yε_cache.params.b
             singularity = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
-            return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂) + singularity .* x
+            return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂) + singularity .* SVector(x)
         else
-            (sing_x1, sing_x2) = grad_f_hankel((t, x[2]), k, α, Yε_cache)
-            K₁_t_x₂ = Lₙ₁_t_x₂ + sing_x1
-            K₂_t_x₂ = Lₙ₂_t_x₂ + sing_x2
+            (bessel_term, sing) = grad_f_hankel(x_norm, k, Yε_cache)
+            exp_term = exp(-im * α * t)
+            K₁_t_x₂ = Lₙ₁_t_x₂ + exp_term * sing * t
+            K₂_t_x₂ = Lₙ₂_t_x₂ + exp_term * sing * x[2]
 
-            singularity = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
-            return exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂) + singularity .* x
+            return exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂) - bessel_term .* SVector(x)
         end
     end
 end
@@ -459,7 +507,7 @@ Compute the Hessian of the α-quasi-periodic Green's function ``G(x)`` using the
   - `HG`: The approximate value of the Hessian of the quasiperiodic Green's function at point `x`
 """
 function hess_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                       nb_terms=50) where {T1, T2}
+                       nb_terms=10) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 
@@ -515,7 +563,7 @@ Compute the Hessian of the smooth α-quasi-periodic Green's function ``G(x)`` us
   - `HG`: The approximate value of the Hessian of the smooth quasiperiodic Green's function at point `x`
 """
 function hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                              nb_terms=50) where {T1, T2}
+                              nb_terms=10) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 

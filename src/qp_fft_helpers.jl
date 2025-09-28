@@ -14,11 +14,21 @@ end
 """
     g_sing(x_norm, k, cache::IntegrationCache)
 
-Calculate the function g (removal of the singularity - gradient case - in the Fourier space in the case where you use
+Calculate the function g_sing (removal of the singularity - gradient case - in the Fourier space in the case where you use
 the Hankel function directly and not its asymptotic form).
 """
 function g_sing(x_norm, k, cache::IntegrationCache)
     return im / 4 * Bessels.hankelh1(0, k * x_norm) * Yε_1st_der(x_norm, cache) / x_norm
+end
+
+"""
+    h_sing(x_norm, k, cache::IntegrationCache)
+
+Calculate the function h_sing (removal of the singularity - hessian case - in the Fourier space in the case where you use
+the Hankel function directly and not its asymptotic form).
+"""
+function h_sing(x_norm, k, cache::IntegrationCache)
+    return -im / 4 * k * Bessels.hankelh1(1, k * x_norm) * Yε_1st_der(x_norm, cache) / x_norm^2
 end
 
 """
@@ -160,13 +170,12 @@ Calculate the function `f_hankel`.
 
 # Returns
 
-    - Evaluation of hankel function.
     - The value of the function `f_hankel` at the point `x`.
 """
 function f_hankel(x_norm, k, cache::IntegrationCache)
     bessel_term = im / 4 * Bessels.hankelh1(0, k * x_norm)
 
-    (bessel_term, bessel_term * Yε(x_norm, cache))
+    bessel_term * Yε(x_norm, cache)
 end
 
 """
@@ -182,23 +191,23 @@ Calculate the gradient of the function `f_hankel`.
 
 # Returns
 
-    - Evaluation of hankel function.
     - The value of the gradient of `f_hankel` at the point `x`.
 """
 function grad_f_hankel(x_norm, k, cache::IntegrationCache)
     bessel_term = -im * k / 4 * Bessels.hankelh1(1, k * x_norm) / x_norm
     common_term = bessel_term * Yε(x_norm, cache)
-    return (bessel_term, common_term)
+    return common_term
 end
 
 """
-    hess_f_hankel(x, k, α, cache::IntegrationCache)
+    hess_f_hankel(x, r, k, α, cache::IntegrationCache)
 
 Calculate the Hessian of the function `f_hankel`.
 
 # Input arguments
 
     - `x`: point at which the function is evaluated
+    - `r`: norm of the point at which the function is evaluated
     - `k`: wavenumber
     - `α`: quasi-periodicity parameter
     - `cache`: cache for the cut-off function `Yε`
@@ -207,20 +216,35 @@ Calculate the Hessian of the function `f_hankel`.
 
     - The value of the Hessian of `f_hankel` at the point `x`.
 """
-function hess_f_hankel(x, k, α, cache::IntegrationCache)
-    x_norm = norm(x)
+function hess_f_hankel(Z, r, k, cache::IntegrationCache)
 
-    cst_term_1 = -im / 4 * k^2
-    cst_term_2 = -im / 4 * k
-    bessel_term = Bessels.hankelh1(1, k * x_norm)
+    # Precompute common terms
+    x_norm_sq = r^2
+    x_norm_cu = x_norm_sq * r
+    inv_x_norm = 1 / r
+    inv_x_norm_sq = 1 / x_norm_sq
+    inv_x_norm_cu = 1 / x_norm_cu
 
-    common_term = cst_term_1 * (bessel_term / (k * x_norm) - Bessels.hankelh1(2, k * x_norm)) / x_norm^2
+    # Precompute Bessel functions and related terms
+    bessel_h1 = Bessels.hankelh1(1, k * r)
+    bessel_h2 = Bessels.hankelh1(2, k * r)
 
-    f_x1x1 = common_term * x[1]^2 + cst_term_2 * bessel_term * (1 / x_norm - x[1]^2 / x_norm^3)
-    f_x1x2 = common_term * x[1] * x[2] + cst_term_2 * bessel_term * (-x[1] * x[2] / x_norm^3)
-    f_x2x2 = common_term * x[2]^2 + cst_term_2 * bessel_term * (1 / x_norm - x[2]^2 / x_norm^3)
+    # Combine constant factors
+    cst_factor = -0.25im * k
+    common_factor = -0.25im * k^2 * inv_x_norm_sq * (bessel_h1 * inv_x_norm / k - bessel_h2)
 
-    return exp(-im * α * x[1]) .* (f_x1x1, f_x1x2, f_x2x2) .* Yε(x_norm, cache)
+    # Precompute terms that are reused
+    bessel_cst_term = cst_factor * bessel_h1
+    t_sq = Z[1]^2
+    x2_sq = Z[2]^2
+    t_x2 = Z[1] * Z[2]
+
+    # Compute singular terms
+    sing_x1x1 = common_factor * t_sq + bessel_cst_term * (inv_x_norm - t_sq * inv_x_norm_cu)
+    sing_x1x2 = common_factor * t_x2 - bessel_cst_term * t_x2 * inv_x_norm_cu
+    sing_x2x2 = common_factor * x2_sq + bessel_cst_term * (inv_x_norm - x2_sq * inv_x_norm_cu)
+
+    SVector(sing_x1x1, sing_x1x2, sing_x2x2) .* Yε(r, cache)
 end
 
 """
@@ -457,27 +481,30 @@ Calculate the Hessian of the singularity of the QP Green function.
 """
 function singularity_hessian(Z, r, k)
     # Precompute common terms
-    r2 = r^2
-    r3 = r2 * r
-    kr = k * r
+    x_norm_sq = r^2
+    x_norm_cu = x_norm_sq * r
+    inv_x_norm = 1 / r
+    inv_x_norm_sq = 1 / x_norm_sq
+    inv_x_norm_cu = 1 / x_norm_cu
 
-    # Compute Hankel functions once
-    h1 = Bessels.hankelh1(1, kr)
-    h2 = Bessels.hankelh1(2, kr)
+    # Precompute Bessel functions and related terms
+    bessel_h1 = Bessels.hankelh1(1, k * r)
+    bessel_h2 = Bessels.hankelh1(2, k * r)
 
-    # Precompute common factors
-    common_factor1 = -im / 4 * k^2 * (h1 / kr - h2) / r2
-    common_factor2 = -im / 4 * k * h1 / r3
+    # Combine constant factors
+    cst_factor = -0.25im * k
+    common_factor = -0.25im * k^2 * inv_x_norm_sq * (bessel_h1 * inv_x_norm / k - bessel_h2)
 
-    # Extract coordinates
-    x, y = Z[1], Z[2]
-    x2, y2 = x^2, y^2
-    xy = x * y
+    # Precompute terms that are reused
+    bessel_cst_term = cst_factor * bessel_h1
+    t_sq = Z[1]^2
+    x2_sq = Z[2]^2
+    t_x2 = Z[1] * Z[2]
 
-    # Compute matrix elements
-    m11 = common_factor1 * x2 + common_factor2 * (r2 - x2)
-    m12 = common_factor1 * xy - common_factor2 * xy
-    m22 = common_factor1 * y2 + common_factor2 * (r2 - y2)
+    # Compute singular terms
+    sing_x1x1 = common_factor * t_sq + bessel_cst_term * (inv_x_norm - t_sq * inv_x_norm_cu)
+    sing_x1x2 = common_factor * t_x2 - bessel_cst_term * t_x2 * inv_x_norm_cu
+    sing_x2x2 = common_factor * x2_sq + bessel_cst_term * (inv_x_norm - x2_sq * inv_x_norm_cu)
 
-    SVector(m11, m12, m22)
+    SVector(sing_x1x1, sing_x1x2, sing_x2x2)
 end

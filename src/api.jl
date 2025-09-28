@@ -62,6 +62,9 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
     # Initialize derivative-specific arrays
     g_eval_sing_x1 = grad ? similar(Φ_eval) : nothing
     g_eval_sing_x2 = grad ? similar(Φ_eval) : nothing
+    h_eval_sing_x1x1 = hess ? similar(Φ_eval) : nothing
+    h_eval_sing_x1x2 = hess ? similar(Φ_eval) : nothing
+    h_eval_sing_x2x2 = hess ? similar(Φ_eval) : nothing
     L̂ⱼ₁ = grad ? similar(L̂ⱼ) : nothing
     L̂ⱼ₂ = grad ? similar(L̂ⱼ) : nothing
     L̂ⱼ₁₁ = hess ? similar(L̂ⱼ) : nothing
@@ -75,6 +78,9 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
             Φ_eval[i, j] = iszero(r) ? zero(Complex{T}) : Φ(r, k, Yε_cache)
             g_eval_sing_x1[i, j] = iszero(r) ? zero(Complex{T}) : g_sing(r, k, Yε_cache)
             g_eval_sing_x2[i, j] = g_eval_sing_x1[i, j]
+            h_eval_sing_x1x1[i, j] = iszero(r) ? zero(Complex{T}) : h_sing(r, k, Yε_cache)
+            h_eval_sing_x1x2[i, j] = h_eval_sing_x1x1[i, j]
+            h_eval_sing_x2x2[i, j] = h_eval_sing_x1x1[i, j]
         end
     elseif grad && !hess
         @inbounds @batch for i ∈ axes(x_grid, 1), j ∈ axes(y_grid, 1)
@@ -97,15 +103,26 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
     Φ̂_freq = Matrix{Complex{T}}(undef, N, N)
     Ĝ_x1_freq = grad ? similar(Φ̂_freq) : nothing
     Ĝ_x2_freq = grad ? similar(Φ̂_freq) : nothing
+    Ĥ_x1x1_freq = hess ? similar(Φ̂_freq) : nothing
+    Ĥ_x1x2_freq = hess ? similar(Φ̂_freq) : nothing
+    Ĥ_x2x2_freq = hess ? similar(Φ̂_freq) : nothing
 
     ## Transform to frequency domain with proper normalization
     # Shift spatial samples to FFT convention
     Φ̂_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(Φ_eval)))
-    if grad
+    if grad || hess
         g_eval_sing_x1 .*= exp.(-im * α .* x_grid) .* x_grid
         g_eval_sing_x2 .*= exp.(-im * α .* x_grid) * y_grid'
         Ĝ_x1_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(g_eval_sing_x1)))
         Ĝ_x2_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(g_eval_sing_x2)))
+        if hess
+            h_eval_sing_x1x1 .*= exp.(-im * α .* x_grid) .* (x_grid .^ 2)
+            h_eval_sing_x1x2 .*= exp.(-im * α .* x_grid) .* (x_grid * y_grid')
+            h_eval_sing_x2x2 .*= exp.(-im * α .* x_grid) .* (y_grid' .^ 2)
+            Ĥ_x1x1_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(h_eval_sing_x1x1)))
+            Ĥ_x1x2_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(h_eval_sing_x1x2)))
+            Ĥ_x2x2_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(h_eval_sing_x2x2)))
+        end
     end
 
     # Precompute FFT plan (reused for each column)
@@ -125,12 +142,14 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
 
                 L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
 
-                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - im * (α + j₁) * F̂ⱼ + Ĝ_x1_freq[i, j]
-                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * F̂ⱼ + Ĝ_x2_freq[i, j]
+                Ĝⱼ₁ = im * (α + j₁) * F̂ⱼ - Ĝ_x1_freq[i, j]
+                Ĝⱼ₂ = im * j₂ * (π / c̃) * F̂ⱼ - Ĝ_x2_freq[i, j]
+                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - Ĝⱼ₁
+                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - Ĝⱼ₂
 
-                L̂ⱼ₁₁[j, i] = -(α + j₁)^2 * K̂ⱼ[j, i] + (α + j₁)^2 * F̂ⱼ
-                L̂ⱼ₁₂[j, i] = -(α + j₁) * j₂ * (π / c̃) * K̂ⱼ[j, i] + (α + j₁) * j₂ * (π / c̃) * F̂ⱼ
-                L̂ⱼ₂₂[j, i] = -(j₂ * π / c̃)^2 * K̂ⱼ[j, i] + (j₂ * π / c̃)^2 * F̂ⱼ
+                L̂ⱼ₁₁[j, i] = -(α + j₁)^2 * K̂ⱼ[j, i] - im * (α + j₁) * Ĝⱼ₁ + Ĥ_x1x1_freq[i, j]
+                L̂ⱼ₁₂[j, i] = -(α + j₁) * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * Ĝⱼ₁ + Ĥ_x1x2_freq[i, j]
+                L̂ⱼ₂₂[j, i] = -(j₂ * π / c̃)^2 * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * Ĝⱼ₂ + Ĥ_x2x2_freq[i, j]
             end
         end
     elseif grad && !hess
@@ -269,7 +288,7 @@ function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::
         elseif x_norm >= Yε_cache.params.b
             return exp(im * α * x[1]) * Lₙ_t_x₂
         else
-            _, sing = f_hankel(x_norm, k, Yε_cache)
+            sing = f_hankel(x_norm, k, Yε_cache)
             K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
             return exp(im * α * x[1]) * K_t_x₂
         end
@@ -324,15 +343,17 @@ function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_
             if t == x[1]
                 return exp(im * α * x[1]) * Lₙ_t_x₂
             else
-                bessel_term = im / 4 * Bessels.hankelh1(0, k * x_norm)
-                K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * bessel_term
-                return exp(im * α * x[1]) * K_t_x₂ - bessel_term
+                bessel_term_1 = im / 4 * Bessels.hankelh1(0, k * x_norm)
+                K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * bessel_term_1
+                bessel_term_2 = im / 4 * Bessels.hankelh1(0, k * norm(x))
+                return exp(im * α * x[1]) * K_t_x₂ - bessel_term_2
             end
         elseif x_norm >= Yε_cache.params.b
-            return exp(im * α * x[1]) * Lₙ_t_x₂ - im / 4 * Bessels.hankelh1(0, k * x_norm)
+            return exp(im * α * x[1]) * Lₙ_t_x₂ - im / 4 * Bessels.hankelh1(0, k * norm(x))
         else
-            bessel_term, sing = f_hankel(x_norm, k, Yε_cache)
+            sing = f_hankel(x_norm, k, Yε_cache)
             K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            bessel_term = im / 4 * Bessels.hankelh1(0, k * norm(x))
             return exp(im * α * x[1]) * K_t_x₂ - bessel_term
         end
     end
@@ -392,7 +413,7 @@ function grad_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cach
         elseif x_norm >= Yε_cache.params.b
             return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂)
         else
-            (bessel_term, sing) = grad_f_hankel(x_norm, k, Yε_cache)
+            sing = grad_f_hankel(x_norm, k, Yε_cache)
             exp_term = exp(-im * α * t)
             K₁_t_x₂ = Lₙ₁_t_x₂ + exp_term * sing * t
             K₂_t_x₂ = Lₙ₂_t_x₂ + exp_term * sing * x[2]
@@ -461,16 +482,23 @@ function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Y
                 sing_x1 = common_term * t
                 sing_x2 = common_term * x[2]
 
-                return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂ + sing_x1, Lₙ₂_t_x₂ + sing_x2) + bessel_term .* x
+                x_norm_2 = norm(x)
+                bessel_term2 = im / 4 * k * Bessels.hankelh1(1, k * x_norm_2) / x_norm_2
+
+                return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂ + sing_x1, Lₙ₂_t_x₂ + sing_x2) + bessel_term2 .* SVector(x)
             end
         elseif x_norm >= Yε_cache.params.b
-            singularity = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
+            r = norm(x)
+            singularity = im / 4 * k * Bessels.hankelh1(1, k * r) / r
             return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂) + singularity .* SVector(x)
         else
-            (bessel_term, sing) = grad_f_hankel(x_norm, k, Yε_cache)
+            sing = grad_f_hankel(x_norm, k, Yε_cache)
             exp_term = exp(-im * α * t)
             K₁_t_x₂ = Lₙ₁_t_x₂ + exp_term * sing * t
             K₂_t_x₂ = Lₙ₂_t_x₂ + exp_term * sing * x[2]
+
+            r = norm(x)
+            bessel_term = -im / 4 * k * Bessels.hankelh1(1, k * r) / r
 
             return exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂) - bessel_term .* SVector(x)
         end
@@ -513,7 +541,7 @@ function hess_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_cach
 
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
-        return eigfunc_expansion_hessian(x, params; nb_terms=nb_terms)
+        return eigfunc_expansion_hess(x, params; nb_terms=nb_terms)
     else
         t = get_t(x[1])
 
@@ -522,16 +550,30 @@ function hess_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_cach
         Lₙ₁₂_t_x₂ = hess.∂x∂y(t, x[2])
         Lₙ₂₂_t_x₂ = hess.∂y∂y(t, x[2])
 
-        # Get K(t, x₂)
-        (sing_x1x1, sing_x1x2, sing_x2x2) = hess_f_hankel((t, x[2]), k, α, Yε_cache)
-        K₁₁_t_x₂ = Lₙ₁₁_t_x₂ + sing_x1x1
-        K₁₂_t_x₂ = Lₙ₁₂_t_x₂ + sing_x1x2
-        K₂₂_t_x₂ = Lₙ₂₂_t_x₂ + sing_x2x2
+        x_norm = norm((t, x[2]))
 
-        # Calculate the approximate value of HG(x)
-        hess = exp(im * α * x[1]) .* SVector(K₁₁_t_x₂, K₁₂_t_x₂, K₂₂_t_x₂)
+        if x_norm <= Yε_cache.params.a
+            exp_term = exp(-im * α * t)
 
-        return hess
+            (sing_x1x1, sing_x1x2, sing_x2x2) = exp_term .* singularity_hessian((t, x[2]), x_norm, k)
+
+            return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂ + sing_x1x1,
+                                                 Lₙ₁₂_t_x₂ + sing_x1x2,
+                                                 Lₙ₂₂_t_x₂ + sing_x2x2)
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂, Lₙ₁₂_t_x₂, Lₙ₂₂_t_x₂)
+        else
+            exp_term = exp(-im * α * t)
+            (sing_x1x1, sing_x1x2, sing_x2x2) = exp_term .* hess_f_hankel((t, x[2]), x_norm, k, Yε_cache)
+            K₁₁_t_x₂ = Lₙ₁₁_t_x₂ + sing_x1x1
+            K₁₂_t_x₂ = Lₙ₁₂_t_x₂ + sing_x1x2
+            K₂₂_t_x₂ = Lₙ₂₂_t_x₂ + sing_x2x2
+
+            # Calculate the approximate value of HG(x)
+            hess = exp(im * α * x[1]) .* SVector(K₁₁_t_x₂, K₁₂_t_x₂, K₂₂_t_x₂)
+
+            return hess
+        end
     end
 end
 
@@ -567,12 +609,11 @@ function hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Y
 
     α, k, c = (params.alpha, params.k, params.c)
 
-    x_norm = norm(x)
-
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
+        x_norm = norm(x)
         singularity = singularity_hessian(x, x_norm, k)
-        return eigfunc_expansion_hessian(x, params; nb_terms=nb_terms) - singularity
+        return eigfunc_expansion_hess(x, params; nb_terms=nb_terms) - singularity
     else
         t = get_t(x[1])
 
@@ -581,20 +622,32 @@ function hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Y
         Lₙ₁₂_t_x₂ = hess.∂x∂y(t, x[2])
         Lₙ₂₂_t_x₂ = hess.∂y∂y(t, x[2])
 
+        x_norm = norm((t, x[2]))
+
         if x_norm <= Yε_cache.params.a
-            return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂, Lₙ₁₂_t_x₂, Lₙ₂₂_t_x₂)
+            if t == x[1]
+                return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂, Lₙ₁₂_t_x₂, Lₙ₂₂_t_x₂)
+            else
+                exp_term = exp(-im * α * t)
+
+                (sing_x1x1, sing_x1x2, sing_x2x2) = singularity_hessian((t, x[2]), x_norm, k)
+
+                return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂ + exp_term * sing_x1x1,
+                               Lₙ₁₂_t_x₂ + exp_term * sing_x1x2,
+                               Lₙ₂₂_t_x₂ + exp_term * sing_x2x2) - singularity_hessian(x, norm(x), k)
+            end
         elseif x_norm >= Yε_cache.params.b
-            singularity = singularity_hessian(x, x_norm, k)
+            singularity = singularity_hessian(x, norm(x), k)
             return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂, Lₙ₁₂_t_x₂, Lₙ₂₂_t_x₂) - singularity
         else
-            (sing_x1x1, sing_x1x2, sing_x2x2) = hess_f_hankel((t, x[2]), k, α, Yε_cache)
-            K₁₁_t_x₂ = Lₙ₁₁_t_x₂ + sing_x1x1
-            K₁₂_t_x₂ = Lₙ₁₂_t_x₂ + sing_x1x2
-            K₂₂_t_x₂ = Lₙ₂₂_t_x₂ + sing_x2x2
+            exp_term = exp(-im * α * t)
 
-            singularity = singularity_hessian(x, x_norm, k)
+            (sing_x1x1, sing_x1x2, sing_x2x2) = hess_f_hankel((t, x[2]), x_norm, k, Yε_cache)
 
-            return exp(im * α * x[1]) .* SVector(K₁₁_t_x₂, K₁₂_t_x₂, K₂₂_t_x₂) - singularity
+            singularity = singularity_hessian(x, norm(x), k)
+
+            return exp(im * α * x[1]) .* SVector(Lₙ₁₁_t_x₂ + exp_term * sing_x1x1, Lₙ₁₂_t_x₂ + exp_term * sing_x1x2,
+                           Lₙ₂₂_t_x₂ + exp_term * sing_x2x2) - singularity
         end
     end
 end

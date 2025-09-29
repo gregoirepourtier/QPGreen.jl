@@ -14,8 +14,8 @@ using StaticArrays
 using .MathConstants: eulergamma
 
 include("expansions.jl")
-export image_expansion, image_expansion_derivative, image_expansion_smooth, image_expansion_derivative_smooth
-export eigfunc_expansion, eigfunc_expansion_derivative
+export image_expansion, image_expansion_grad, image_expansion_hess
+export eigfunc_expansion, eigfunc_expansion_grad, eigfunc_expansion_hess
 
 include("qp_caches.jl")
 
@@ -25,8 +25,11 @@ include("api.jl")
 export init_qp_green_fft
 export eval_qp_green, eval_smooth_qp_green
 export grad_qp_green, grad_smooth_qp_green
+export hess_qp_green, hess_smooth_qp_green
 
 include("cutoff_functions.jl")
 include("qp_fft_helpers.jl")
+
+include("api_asymptotic.jl")
 
 end # module

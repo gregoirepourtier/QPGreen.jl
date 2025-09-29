@@ -1,7 +1,7 @@
 name = "QPGreen"
 uuid = "8ff76263-3d2e-4b9c-88ff-2ca8b003e2a7"
 authors = ["gregoirepourtier <gpourtier@icloud.com>"]
-version = "0.2.2"
+version = "1.0.0"
 
 [deps]
 Bessels = "0e736298-9ec6-45e8-9647-e4fc86a2fe38"
@@ -18,7 +18,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Bessels = "0.2.8"
 DocStringExtensions = "0.9"
 FFTW = "1.8"
-Interpolations = "0.15"
+Interpolations = "0.16"
 Polyester = "0.7"
 QuadGK = "2.11"
 SpecialFunctions = "2.5"

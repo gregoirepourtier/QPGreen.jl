@@ -140,3 +140,6 @@ function FFTCache(N::Integer, grid_size::Integer, c̃, ::Type{T}=Float64) where 
 
     return FFTCache(j_idx, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped)
 end
+
+hankelh1(n, x::AbstractFloat) = Bessels.hankelh1(n, x)
+hankelh1(n, x) = SpecialFunctions.hankelh1(n, x)

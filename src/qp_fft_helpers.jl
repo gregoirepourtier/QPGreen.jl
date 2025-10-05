@@ -173,7 +173,7 @@ Calculate the function `f_hankel`.
     - The value of the function `f_hankel` at the point `x`.
 """
 function f_hankel(x_norm, k, cache::IntegrationCache)
-    bessel_term = im / 4 * Bessels.hankelh1(0, k * x_norm)
+    bessel_term = im / 4 * hankelh1(0, k * x_norm)
 
     bessel_term * Yε(x_norm, cache)
 end
@@ -194,7 +194,7 @@ Calculate the gradient of the function `f_hankel`.
     - The value of the gradient of `f_hankel` at the point `x`.
 """
 function grad_f_hankel(x_norm, k, cache::IntegrationCache)
-    bessel_term = -im * k / 4 * Bessels.hankelh1(1, k * x_norm) / x_norm
+    bessel_term = -im * k / 4 * hankelh1(1, k * x_norm) / x_norm
     common_term = bessel_term * Yε(x_norm, cache)
     return common_term
 end
@@ -226,8 +226,8 @@ function hess_f_hankel(Z, r, k, cache::IntegrationCache)
     inv_x_norm_cu = 1 / x_norm_cu
 
     # Precompute Bessel functions and related terms
-    bessel_h1 = Bessels.hankelh1(1, k * r)
-    bessel_h2 = Bessels.hankelh1(2, k * r)
+    bessel_h1 = hankelh1(1, k * r)
+    bessel_h2 = hankelh1(2, k * r)
 
     # Combine constant factors
     cst_factor = -0.25im * k
@@ -488,8 +488,8 @@ function singularity_hessian(Z, r, k)
     inv_x_norm_cu = 1 / x_norm_cu
 
     # Precompute Bessel functions and related terms
-    bessel_h1 = Bessels.hankelh1(1, k * r)
-    bessel_h2 = Bessels.hankelh1(2, k * r)
+    bessel_h1 = hankelh1(1, k * r)
+    bessel_h2 = hankelh1(2, k * r)
 
     # Combine constant factors
     cst_factor = -0.25im * k

@@ -284,7 +284,7 @@ function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::
         # Get K(t, x₂)
         if x_norm <= Yε_cache.params.a
             K_t_x₂ = Lₙ_t_x₂
-            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * Bessels.hankelh1(0, k * x_norm))
+            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
         elseif x_norm >= Yε_cache.params.b
             return exp(im * α * x[1]) * Lₙ_t_x₂
         else
@@ -329,7 +329,7 @@ function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_
     # Check if the point is outside the domain D_c
     if abs(x[2]) > c
         x_norm = norm(x)
-        singularity = im / 4 * Bessels.hankelh1(0, k * x_norm)
+        singularity = im / 4 * hankelh1(0, k * x_norm)
         return eigfunc_expansion(x, params; nb_terms=nb_terms) - singularity
     else
         t = get_t(x[1])
@@ -343,17 +343,17 @@ function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_
             if t == x[1]
                 return exp(im * α * x[1]) * Lₙ_t_x₂
             else
-                bessel_term_1 = im / 4 * Bessels.hankelh1(0, k * x_norm)
+                bessel_term_1 = im / 4 * hankelh1(0, k * x_norm)
                 K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * bessel_term_1
-                bessel_term_2 = im / 4 * Bessels.hankelh1(0, k * norm(x))
+                bessel_term_2 = im / 4 * hankelh1(0, k * norm(x))
                 return exp(im * α * x[1]) * K_t_x₂ - bessel_term_2
             end
         elseif x_norm >= Yε_cache.params.b
-            return exp(im * α * x[1]) * Lₙ_t_x₂ - im / 4 * Bessels.hankelh1(0, k * norm(x))
+            return exp(im * α * x[1]) * Lₙ_t_x₂ - im / 4 * hankelh1(0, k * norm(x))
         else
             sing = f_hankel(x_norm, k, Yε_cache)
             K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
-            bessel_term = im / 4 * Bessels.hankelh1(0, k * norm(x))
+            bessel_term = im / 4 * hankelh1(0, k * norm(x))
             return exp(im * α * x[1]) * K_t_x₂ - bessel_term
         end
     end
@@ -405,7 +405,7 @@ function grad_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cach
         Lₙ₂_t_x₂ = grad.∂y(t, x[2])
 
         if x_norm <= Yε_cache.params.a
-            common_term = exp(-im * α * t) * -im * k / 4 * Bessels.hankelh1(1, k * x_norm) / x_norm
+            common_term = exp(-im * α * t) * -im * k / 4 * hankelh1(1, k * x_norm) / x_norm
             sing_x1 = common_term * t
             sing_x2 = common_term * x[2]
 
@@ -462,7 +462,7 @@ function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Y
     if abs(x[2]) > c
         x_norm = norm(x)
 
-        singularity = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
+        singularity = im / 4 * k * hankelh1(1, k * x_norm) / x_norm
         return eigfunc_expansion_grad(x, params; nb_terms=nb_terms) + singularity .* SVector(x)
     else
         t = get_t(x[1])
@@ -477,19 +477,19 @@ function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Y
             if t == x[1]
                 return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂)
             else
-                bessel_term = im / 4 * k * Bessels.hankelh1(1, k * x_norm) / x_norm
+                bessel_term = im / 4 * k * hankelh1(1, k * x_norm) / x_norm
                 common_term = exp(-im * α * t) * -bessel_term
                 sing_x1 = common_term * t
                 sing_x2 = common_term * x[2]
 
                 x_norm_2 = norm(x)
-                bessel_term2 = im / 4 * k * Bessels.hankelh1(1, k * x_norm_2) / x_norm_2
+                bessel_term2 = im / 4 * k * hankelh1(1, k * x_norm_2) / x_norm_2
 
                 return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂ + sing_x1, Lₙ₂_t_x₂ + sing_x2) + bessel_term2 .* SVector(x)
             end
         elseif x_norm >= Yε_cache.params.b
             r = norm(x)
-            singularity = im / 4 * k * Bessels.hankelh1(1, k * r) / r
+            singularity = im / 4 * k * hankelh1(1, k * r) / r
             return exp(im * α * x[1]) .* SVector(Lₙ₁_t_x₂, Lₙ₂_t_x₂) + singularity .* SVector(x)
         else
             sing = grad_f_hankel(x_norm, k, Yε_cache)
@@ -498,7 +498,7 @@ function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Y
             K₂_t_x₂ = Lₙ₂_t_x₂ + exp_term * sing * x[2]
 
             r = norm(x)
-            bessel_term = -im / 4 * k * Bessels.hankelh1(1, k * r) / r
+            bessel_term = -im / 4 * k * hankelh1(1, k * r) / r
 
             return exp(im * α * x[1]) .* SVector(K₁_t_x₂, K₂_t_x₂) - bessel_term .* SVector(x)
         end

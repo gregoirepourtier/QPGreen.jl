@@ -22,20 +22,65 @@ struct IntegrationParameters{T1 <: Real, T2 <: Signed}
     b::T1
 
     """
+    Binomial coefficients for the cutoff function
+    """
+    binom_coeffs::Vector{T1}
+
+    """
+    Precomputed exponents for the cutoff function
+    """
+    precomp_exponents::Vector{T2}
+
+    """
     Order of the cutoff function
     """
     order::T2
 end
 
+function IntegrationParameters(a, b, order)
+    binom_coeffs = Vector{eltype(a)}(undef, order + 1)
+    precomp_exponents = Vector{eltype(order)}(undef, order + 1)
+
+    a_minus_b = a - b
+    denominator = 2 * order + 1
+
+    for k ∈ 0:order
+        binom_coeffs[k + 1] = binomial(order, k) * a_minus_b^k / (denominator - k)
+        precomp_exponents[k + 1] = denominator - k
+    end
+
+    IntegrationParameters(a,
+                          b,
+                          binom_coeffs,
+                          precomp_exponents,
+                          order)
+end
+
 Base.:-(x::IntegrationParameters) = IntegrationParameters(-x.b, -x.a, x.order)
 
+
+"""
+    analytical_integration(t, _int::IntegrationParameters)
+
+Evaluate the analytical integral of the polynomial cutoff function.
+"""
+function int_polynomial_cutoff(x, _int::IntegrationParameters)
+
+    sum = zero(x)
+    x_minus_a = x - _int.a
+
+    for k ∈ 0:(_int.order)
+        sum += _int.binom_coeffs[k + 1] * x_minus_a^_int.precomp_exponents[k + 1]
+    end
+    return sum
+end
+
 polynomial_cutoff(x, _int::IntegrationParameters) = (x - _int.a)^_int.order * (x - _int.b)^_int.order
+
 function polynomial_cutoff_derivative(x, _int::IntegrationParameters)
     _int.order * (x - _int.a)^(_int.order - 1) * (x - _int.b)^_int.order +
     _int.order * (x - _int.a)^_int.order * (x - _int.b)^(_int.order - 1)
 end
-
-int_polynomial_cutoff(x, _int::IntegrationParameters) = quadgk(x_ -> polynomial_cutoff(x_, _int), _int.a, x)[1]
 
 """
 $(TYPEDEF)
@@ -51,21 +96,73 @@ struct IntegrationCache{T1 <: Real, T2 <: Signed} <: AbstractIntegrationCache
     normalization::T1
 
     """
+    Type of cutoff function (:polynomial or :mollifier)
+    """
+    type_cutoff::Symbol
+
+    """
     Parameters of integration
     """
     params::IntegrationParameters{T1, T2}
 end
 
-function IntegrationCache(poly::IntegrationParameters)
-    IntegrationCache(1 / quadgk(x_ -> polynomial_cutoff(x_, poly), poly.a, poly.b)[1], poly)
+function IntegrationCache(poly::IntegrationParameters, type_cutoff::Symbol)
+    # Use change of variables to avoid cancellation errors
+    if type_cutoff == :mollifier
+        return IntegrationCache(1.0, type_cutoff, poly)
+    else
+        if poly.order <= 8
+            return IntegrationCache(1 / ((poly.b - poly.a)^(2 * poly.order + 1) * (factorial(poly.order))^2 /
+                                     factorial(2 * poly.order + 1)), type_cutoff, poly)
+        else
+            return IntegrationCache(1 / quadgk(x_ -> polynomial_cutoff(x_, poly), poly.a, poly.b)[1], type_cutoff, poly)
+        end
+    end
+end
+
+function mollifier(x, params::IntegrationParameters, k)
+    u = (x - params.a) / (params.b - params.a)
+
+    return exp(k * exp(-1 / u) / (u - 1))
+end
+
+function mollifier_derivative(x, params::IntegrationParameters, k)
+    u = (x - params.a) / (params.b - params.a)
+
+    exponent_from_exponent = -1 / u
+    exponent = k * exp(exponent_from_exponent) / (u - 1)
+    numerator = k * exp(exponent) * exp(exponent_from_exponent) * (u^2 - u + 1)
+    denominator = (params.b - params.a) * u^2 * (u - 1)^2
+    return -numerator / denominator
+end
+
+function mollifier_second_derivative(x, params::IntegrationParameters, k)
+    u = (x - params.a) / (params.b - params.a)
+
+    exponent_from_exponent = -1 / u
+    exponent = k * exp(exponent_from_exponent) / (u - 1)
+
+    f_t = exp(exponent)
+
+    first_term = f_t / (params.b - params.a)^2
+    second_term = k^2 * exp(2 * exponent_from_exponent) * (u^2 - u + 1)^2 / (u^4 * (u - 1)^4)
+    third_term = -k * exp(exponent_from_exponent) *
+                 ((u^2 - u + 1) / (u^4 * (u - 1)^2) + (2 * u - 1) * (-u^2 + u - 2) / (u^3 * (u - 1)^3))
+
+    return first_term * (second_term + third_term)
 end
 
 
 struct FFTCache{T1 <: Real, T2 <: Real, T3 <: Integer}
     """
-    Index of grid points -grid_size ≤ j ≤ grid_size-1
+    Index of grid points -grid_size ≤ j1 ≤ grid_size-1
     """
-    j_idx::Vector{T3}
+    j1_idx::Vector{T3}
+
+    """
+    Index of grid points -grid_size ≤ j2 ≤ grid_size-1
+    """
+    j2_idx::Vector{T3}
 
     """
     Points to evaluate the fourier integral via 1D FFT
@@ -126,19 +223,20 @@ An `FFTCache` object containing:
       + `shift_fft_1d`: Shifted FFT result.
       + `fft_eval_flipped`: Transposed result of FFT.
 """
-function FFTCache(N::Integer, grid_size::Integer, c̃, ::Type{T}=Float64) where {T <: Real}
+function FFTCache(M::Integer, grid_size_x::Integer, grid_size_y::Integer, c̃, ::Type{T}=Float64) where {T <: Real}
 
-    j_idx = Vector{Int}((-grid_size):(grid_size - 1))
-    t_j_fft = range(-c̃, c̃; length=2 * N + 1) |> collect
+    j1_idx = Vector{Int}((-grid_size_x):(grid_size_x - 1))
+    j2_idx = Vector{Int}((-grid_size_y):(grid_size_y - 1))
+    t_j_fft = range(-c̃, c̃; length=2 * M + 1) |> collect
 
     # Preallocate all vectors with type `Complex{T}`
-    eval_int_fft_1D = Vector{Complex{T}}(undef, 2 * N + 1)
-    shift_sample_eval_int = Vector{Complex{T}}(undef, 2 * N)
-    fft_eval = Vector{Complex{T}}(undef, 2 * N)
-    shift_fft_1d = Vector{Complex{T}}(undef, 2 * N)
-    fft_eval_flipped = transpose(Vector{Complex{T}}(undef, 2 * N))
+    eval_int_fft_1D = Vector{Complex{T}}(undef, 2 * M + 1)
+    shift_sample_eval_int = Vector{Complex{T}}(undef, 2 * M)
+    fft_eval = Vector{Complex{T}}(undef, 2 * M)
+    shift_fft_1d = Vector{Complex{T}}(undef, 2 * M)
+    fft_eval_flipped = transpose(Vector{Complex{T}}(undef, 2 * M))
 
-    return FFTCache(j_idx, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped)
+    return FFTCache(j1_idx, j2_idx, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped)
 end
 
 hankelh1(n, x::AbstractFloat) = Bessels.hankelh1(n, x)

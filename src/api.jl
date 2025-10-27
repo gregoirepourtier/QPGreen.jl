@@ -30,10 +30,13 @@ Preparation step of the FFT-based algorithm.
             + `hess`: Tuple of spline interpolators for the second derivatives of `Ln` (`∂²/∂x₁²`, `∂²/∂x₁∂x₂`, `∂²/∂x₂²`), if `hess=true`.
             + `cache`: Precomputed integration cache for reuse in later computations.
 """
-function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, hess=false)
-    α, k, c, c̃, ε, order = (params.alpha, params.k, params.c, params.c_tilde, params.epsilon, params.order)
+function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{Integer, Integer}}; grad=false, hess=false)
+    α, k, c, c̃, ε, type_cutoff = (params.alpha, params.k, params.c, params.c_tilde, params.epsilon, params.type_cutoff)
     c₁, c₂ = c, (c + c̃) / 2
     T = typeof(α)
+
+    order = haskey(params, :order) ? params.order :
+            hashkey(type_cutoff, :polynomial) == :polynomial ? error("Parameter 'order' is not defined in params") : 1
 
     # Check that βₙ ≠ 0, i.e. √(k^2 - αₙ^2) ≠ 0 to ensure that the eigenfunction expansion is well-defined
     check_compatibility(α, k)
@@ -43,21 +46,23 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
     params_Yε = IntegrationParameters(ε, 2ε, order)
 
     # Generate caches for the cutoff functions
-    χ_cache = IntegrationCache(params_χ)
-    Yε_cache = IntegrationCache(params_Yε)
+    χ_cache = IntegrationCache(params_χ, type_cutoff)
+    Yε_cache = IntegrationCache(params_Yε, type_cutoff)
 
     # Generate the grid
-    N = 2 * grid_size
-    x_grid = range(-π, π - π / grid_size; length=N)
-    y_grid = range(-c̃, c̃ - c̃ / grid_size; length=N)
+    (grid_size_x, grid_size_y) = typeof(grid_size) <: Integer ? (grid_size, grid_size) : (grid_size[1], grid_size[2])
+    N = 2 * grid_size_x
+    M = 2 * grid_size_y
+    x_grid = range(-π, π - π / grid_size_x; length=N)
+    y_grid = range(-c̃, c̃ - c̃ / grid_size_y; length=M)
 
     # Preallocate FFT workspace and matrices for FFT sample points
-    fft_cache = FFTCache(N, grid_size, c̃, T)
+    fft_cache = FFTCache(M, grid_size_x, grid_size_y, c̃, T)
 
-    K̂ⱼ = Matrix{Complex{T}}(undef, N, N)
+    K̂ⱼ = Matrix{Complex{T}}(undef, N, M)
     L̂ⱼ = similar(K̂ⱼ)
 
-    Φ_eval = Matrix{Complex{T}}(undef, N, N)
+    Φ_eval = Matrix{Complex{T}}(undef, N, M)
 
     # Initialize derivative-specific arrays
     g_eval_sing_x1 = grad ? similar(Φ_eval) : nothing
@@ -99,8 +104,8 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
     end
     Φ_eval .*= exp.(-im * α .* x_grid)
 
-    # Preallocate frequency-domain matrices (Hermitian-symmetric due to rfft)
-    Φ̂_freq = Matrix{Complex{T}}(undef, N, N)
+    # Preallocate frequency-domain matrices
+    Φ̂_freq = Matrix{Complex{T}}(undef, N, M)
     Ĝ_x1_freq = grad ? similar(Φ̂_freq) : nothing
     Ĝ_x2_freq = grad ? similar(Φ̂_freq) : nothing
     Ĥ_x1x1_freq = hess ? similar(Φ̂_freq) : nothing
@@ -109,19 +114,19 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
 
     ## Transform to frequency domain with proper normalization
     # Shift spatial samples to FFT convention
-    Φ̂_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(Φ_eval)))
+    Φ̂_freq .= (2 * √(π * c̃)) / (N * M) .* fftshift(fft(fftshift(Φ_eval)))
     if grad || hess
         g_eval_sing_x1 .*= exp.(-im * α .* x_grid) .* x_grid
         g_eval_sing_x2 .*= exp.(-im * α .* x_grid) * y_grid'
-        Ĝ_x1_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(g_eval_sing_x1)))
-        Ĝ_x2_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(g_eval_sing_x2)))
+        Ĝ_x1_freq .= (2 * √(π * c̃)) / (N * M) .* fftshift(fft(fftshift(g_eval_sing_x1)))
+        Ĝ_x2_freq .= (2 * √(π * c̃)) / (N * M) .* fftshift(fft(fftshift(g_eval_sing_x2)))
         if hess
             h_eval_sing_x1x1 .*= exp.(-im * α .* x_grid) .* (x_grid .^ 2)
             h_eval_sing_x1x2 .*= exp.(-im * α .* x_grid) .* (x_grid * y_grid')
             h_eval_sing_x2x2 .*= exp.(-im * α .* x_grid) .* (y_grid' .^ 2)
-            Ĥ_x1x1_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(h_eval_sing_x1x1)))
-            Ĥ_x1x2_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(h_eval_sing_x1x2)))
-            Ĥ_x2x2_freq .= (2 * √(π * c̃)) / (N^2) .* fftshift(fft(fftshift(h_eval_sing_x2x2)))
+            Ĥ_x1x1_freq .= (2 * √(π * c̃)) / (N * M) .* fftshift(fft(fftshift(h_eval_sing_x1x1)))
+            Ĥ_x1x2_freq .= (2 * √(π * c̃)) / (N * M) .* fftshift(fft(fftshift(h_eval_sing_x1x2)))
+            Ĥ_x2x2_freq .= (2 * √(π * c̃)) / (N * M) .* fftshift(fft(fftshift(h_eval_sing_x2x2)))
         end
     end
 
@@ -131,108 +136,112 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
     # Process each frequency component
     if hess
         @inbounds for i ∈ 1:N
-            j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
+            j₁, freq_idx, use_conj = process_frequency_component!(i, M, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
             # Compute L̂ⱼ, L̂ⱼ₁, L̂ⱼ₂, L̂ⱼ₁₁, L̂ⱼ₁₂, L̂ⱼ₂₂ coefficients
-            @inbounds @batch for j ∈ 1:N
-                j₂ = fft_cache.j_idx[j]
+            @inbounds @batch for j ∈ 1:M
+                j₂ = fft_cache.j2_idx[j]
 
                 cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
 
-                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
+                L̂ⱼ[i, j] = K̂ⱼ[i, j] - F̂ⱼ
 
                 Ĝⱼ₁ = im * (α + j₁) * F̂ⱼ - Ĝ_x1_freq[i, j]
                 Ĝⱼ₂ = im * j₂ * (π / c̃) * F̂ⱼ - Ĝ_x2_freq[i, j]
-                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - Ĝⱼ₁
-                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - Ĝⱼ₂
+                L̂ⱼ₁[i, j] = im * (α + j₁) * K̂ⱼ[i, j] - Ĝⱼ₁
+                L̂ⱼ₂[i, j] = im * j₂ * (π / c̃) * K̂ⱼ[i, j] - Ĝⱼ₂
 
-                L̂ⱼ₁₁[j, i] = -(α + j₁)^2 * K̂ⱼ[j, i] - im * (α + j₁) * Ĝⱼ₁ + Ĥ_x1x1_freq[i, j]
-                L̂ⱼ₁₂[j, i] = -(α + j₁) * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * Ĝⱼ₁ + Ĥ_x1x2_freq[i, j]
-                L̂ⱼ₂₂[j, i] = -(j₂ * π / c̃)^2 * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * Ĝⱼ₂ + Ĥ_x2x2_freq[i, j]
+                L̂ⱼ₁₁[i, j] = -(α + j₁)^2 * K̂ⱼ[i, j] - im * (α + j₁) * Ĝⱼ₁ + Ĥ_x1x1_freq[i, j]
+                L̂ⱼ₁₂[i, j] = -(α + j₁) * j₂ * (π / c̃) * K̂ⱼ[i, j] - im * j₂ * (π / c̃) * Ĝⱼ₁ + Ĥ_x1x2_freq[i, j]
+                L̂ⱼ₂₂[i, j] = -(j₂ * π / c̃)^2 * K̂ⱼ[i, j] - im * j₂ * (π / c̃) * Ĝⱼ₂ + Ĥ_x2x2_freq[i, j]
             end
         end
     elseif grad && !hess
         @inbounds for i ∈ 1:N
-            j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
+            j₁, freq_idx, use_conj = process_frequency_component!(i, M, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
             # Compute L̂ⱼ, L̂ⱼ₁, L̂ⱼ₂ coefficients
-            @inbounds @batch for j ∈ 1:N
-                j₂ = fft_cache.j_idx[j]
+            @inbounds @batch for j ∈ 1:M
+                j₂ = fft_cache.j2_idx[j]
 
                 cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
 
-                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
+                L̂ⱼ[i, j] = K̂ⱼ[i, j] - F̂ⱼ
 
-                L̂ⱼ₁[j, i] = im * (α + j₁) * K̂ⱼ[j, i] - im * (α + j₁) * F̂ⱼ + Ĝ_x1_freq[i, j]
-                L̂ⱼ₂[j, i] = im * j₂ * (π / c̃) * K̂ⱼ[j, i] - im * j₂ * (π / c̃) * F̂ⱼ + Ĝ_x2_freq[i, j]
+                L̂ⱼ₁[i, j] = im * (α + j₁) * K̂ⱼ[i, j] - im * (α + j₁) * F̂ⱼ + Ĝ_x1_freq[i, j]
+                L̂ⱼ₂[i, j] = im * j₂ * (π / c̃) * K̂ⱼ[i, j] - im * j₂ * (π / c̃) * F̂ⱼ + Ĝ_x2_freq[i, j]
             end
         end
     else
         @inbounds for i ∈ 1:N
-            j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
+            j₁, freq_idx, use_conj = process_frequency_component!(i, M, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
             # Compute L̂ⱼ coefficients
-            @inbounds @batch for j ∈ 1:N
-                j₂ = fft_cache.j_idx[j]
+            @inbounds @batch for j ∈ 1:M
+                j₂ = fft_cache.j2_idx[j]
 
                 cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
 
-                L̂ⱼ[j, i] = K̂ⱼ[j, i] - F̂ⱼ
+                L̂ⱼ[i, j] = K̂ⱼ[i, j] - F̂ⱼ
             end
         end
     end
 
     # Transform back to spatial domain
-    L_spatial = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ))))
+    L_spatial = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ)))
 
     # Create spline interpolator
-    value_interpolator = cubic_spline_interpolation((x_grid, y_grid), L_spatial; extrapolation_bc=Line())
+    value_interpolator = cubic_spline_interpolation((x_grid, y_grid), L_spatial; extrapolation_bc=Periodic())
 
     if grad && hess
-        Lₙ₁ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁))))
-        Lₙ₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂))))
+        Lₙ₁ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₁)))
+        Lₙ₂ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₂)))
 
-        grad_interpolator = (∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁; extrapolation_bc=Line()),
-                             ∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂; extrapolation_bc=Line()))
+        grad_interpolator = (∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁; extrapolation_bc=Periodic()),
+                             ∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂; extrapolation_bc=Periodic()))
 
-        Lₙ₁₁ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁₁))))
-        Lₙ₁₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁₂))))
-        Lₙ₂₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂₂))))
+        Lₙ₁₁ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₁₁)))
+        Lₙ₁₂ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₁₂)))
+        Lₙ₂₂ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₂₂)))
 
-        hess_interpolator = (∂x∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₁; extrapolation_bc=Line()),
-                             ∂x∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₂; extrapolation_bc=Line()),
-                             ∂y∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂₂; extrapolation_bc=Line()))
+        hess_interpolator = (∂x∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₁; extrapolation_bc=Periodic()),
+                             ∂x∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₂; extrapolation_bc=Periodic()),
+                             ∂y∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂₂; extrapolation_bc=Periodic()))
 
         return (value=value_interpolator,
                 grad=grad_interpolator,
                 hess=hess_interpolator,
                 cache=Yε_cache)
     elseif grad && !hess
-        Lₙ₁ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁))))
-        Lₙ₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂))))
+        Lₙ₁ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₁)))
+        Lₙ₂ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₂)))
 
-        grad_interpolator = (∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁; extrapolation_bc=Line()),
-                             ∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂; extrapolation_bc=Line()))
+        grad_interpolator = (∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁; extrapolation_bc=Periodic()),
+                             ∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂; extrapolation_bc=Periodic()))
         return (value=value_interpolator,
                 grad=grad_interpolator,
                 cache=Yε_cache)
     elseif !grad && hess
-        Lₙ₁₁ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁₁))))
-        Lₙ₁₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₁₂))))
-        Lₙ₂₂ = N^2 / (2 * √(π * c̃)) .* transpose(fftshift(ifft!(fftshift(L̂ⱼ₂₂))))
+        Lₙ₁₁ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₁₁)))
+        Lₙ₁₂ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₁₂)))
+        Lₙ₂₂ = N * M / (2 * √(π * c̃)) .* fftshift(ifft!(fftshift(L̂ⱼ₂₂)))
 
-        hess_interpolator = (∂x∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₁; extrapolation_bc=Line()),
-                             ∂x∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₂; extrapolation_bc=Line()),
-                             ∂y∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂₂; extrapolation_bc=Line()))
+        hess_interpolator = (∂x∂x=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₁; extrapolation_bc=Periodic()),
+                             ∂x∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₁₂; extrapolation_bc=Periodic()),
+                             ∂y∂y=cubic_spline_interpolation((x_grid, y_grid), Lₙ₂₂; extrapolation_bc=Periodic()))
         return (value=value_interpolator,
                 hess=hess_interpolator,
                 cache=Yε_cache)
     end
 
+    # return (value=value_interpolator,
+    #         cache=Yε_cache)
     return (value=value_interpolator,
+            mat=L̂ⱼ,
+            grid=(collect(x_grid), collect(y_grid)),
             cache=Yε_cache)
 end
 
@@ -278,6 +287,67 @@ function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::
 
         # Bicubic Interpolation to get Lₙ(t, x₂)
         Lₙ_t_x₂ = value_interpolator(t, x[2])
+
+        x_norm = norm((t, x[2]))
+
+        # Get K(t, x₂)
+        if x_norm <= Yε_cache.params.a
+            K_t_x₂ = Lₙ_t_x₂
+            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) * Lₙ_t_x₂
+        else
+            sing = f_hankel(x_norm, k, Yε_cache)
+            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            return exp(im * α * x[1]) * K_t_x₂
+        end
+    end
+end
+
+function basis_function_fourier(x, j, c_tilde)
+    1 / (2 * √(π * c_tilde)) * exp(im * j[1] * x[1] + im * j[2] * π * x[2] / c_tilde)
+end
+
+function spectral_interp(x, values, c_tilde, grid_size::Tuple{Int, Int})
+    sum = 0.0 + 0.0im
+    N = grid_size[1]
+    M = grid_size[2]
+    for i1 ∈ (-N):(N - 1)
+        for i2 ∈ (-M):(M - 1)
+            j = (i1, i2)
+            phi_j = basis_function_fourier(x, j, c_tilde)
+            sum += values[i1 + N + 1, i2 + M + 1] * phi_j
+        end
+    end
+    return sum
+end
+
+function spectral_interp(x, values, c_tilde, grid_size::Int)
+    sum = 0.0 + 0.0im
+    N = grid_size
+    for i1 ∈ (-N):(N - 1)
+        for i2 ∈ (-N):(N - 1)
+            j = (i1, i2)
+            phi_j = basis_function_fourier(x, j, c_tilde)
+            sum += values[i1 + N + 1, i2 + N + 1] * phi_j
+        end
+    end
+    return sum
+end
+
+
+function eval_qp_green_fourier_series(x, params::NamedTuple, fourier_coeffs, Yε_cache::IntegrationCache; nb_terms=10)
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        return eigfunc_expansion(x, params; nb_terms=nb_terms)
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ_t_x₂ = spectral_interp((t, x[2]), fourier_coeffs.values, params.c_tilde, fourier_coeffs.grid_size)
 
         x_norm = norm((t, x[2]))
 

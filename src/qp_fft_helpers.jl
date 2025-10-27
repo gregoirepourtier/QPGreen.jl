@@ -98,30 +98,30 @@ Mutating function that computes the Fourier coefficients `K̂ⱼ`.
 
   - The Fourier coefficients `K̂ⱼ`.
 """
-function get_K̂ⱼ!(K̂ⱼ, params::NamedTuple, N, i, fft_cache::FFTCache{T}, cache::IntegrationCache, p) where {T}
+function get_K̂ⱼ!(K̂ⱼ, params::NamedTuple, M, i, fft_cache::FFTCache{T}, cache::IntegrationCache, p) where {T}
 
     α, k, c̃ = (params.alpha, params.k, params.c_tilde)
 
-    αₙ = α + fft_cache.j_idx[i]
+    αₙ = α + fft_cache.j1_idx[i]
     βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
 
     fft_cache.eval_int_fft_1D .= integrand_fourier_fft_1D.(fft_cache.t_j_fft, βₙ, Ref(cache))
-    fft_cache.eval_int_fft_1D[1:N] .= zero(Complex{T})
+    fft_cache.eval_int_fft_1D[1:M] .= zero(Complex{T})
     @views fftshift!(fft_cache.shift_sample_eval_int, fft_cache.eval_int_fft_1D[1:(end - 1)])
     fft_cache.fft_eval .= p * fft_cache.shift_sample_eval_int
     fftshift!(fft_cache.shift_fft_1d, fft_cache.fft_eval)
     fft_cache.fft_eval_flipped .= transpose(fft_cache.shift_fft_1d)
     reverse!(fft_cache.fft_eval_flipped)
 
-    @views integral_1 = fft_cache.shift_fft_1d[(N ÷ 2 + 1):(N ÷ 2 + N)]
-    integral_1 .*= c̃ / N
+    @views integral_1 = fft_cache.shift_fft_1d[(M ÷ 2 + 1):(M ÷ 2 + M)]
+    integral_1 .*= c̃ / M
 
-    @views integral_2 = fft_cache.fft_eval_flipped[(N ÷ 2):(N ÷ 2 + N - 1)]
-    integral_2 .*= c̃ / N
+    @views integral_2 = fft_cache.fft_eval_flipped[(M ÷ 2):(M ÷ 2 + M - 1)]
+    integral_2 .*= c̃ / M
 
-    @. K̂ⱼ = 1 / (2 * √(π * c̃)) * (1 / (αₙ^2 + (fft_cache.j_idx * π / c̃)^2 - k^2) +
-              1 / (2 * βₙ * (fft_cache.j_idx * π / c̃ - βₙ)) * integral_1 -
-              1 / (2 * βₙ * (fft_cache.j_idx * π / c̃ + βₙ)) * integral_2)
+    @. K̂ⱼ = 1 / (2 * √(π * c̃)) * (1 / (αₙ^2 + (fft_cache.j2_idx * π / c̃)^2 - k^2) +
+              1 / (2 * βₙ * (fft_cache.j2_idx * π / c̃ - βₙ)) * integral_1 -
+              1 / (2 * βₙ * (fft_cache.j2_idx * π / c̃ + βₙ)) * integral_2)
 end
 
 
@@ -447,15 +447,15 @@ end
 Internal helper for processing a single frequency component during quasi-periodic Green's function computation.
 Handles coefficient calculations and frequency index mapping for position `i` in the FFT grid.
 """
-function process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
-    j₁ = fft_cache.j_idx[i]
+function process_frequency_component!(i, M, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
+    j₁ = fft_cache.j1_idx[i]
 
     # Compute K̂ⱼ coefficients
-    @views get_K̂ⱼ!(K̂ⱼ[:, i], params, N, i, fft_cache, χ_cache, fft_plan)
+    @views get_K̂ⱼ!(K̂ⱼ[i, :], params, M, i, fft_cache, χ_cache, fft_plan)
 
     # Determine frequency index handling
-    freq_idx = i > N ÷ 2 + 1 ? N - i + 2 : i
-    use_conj = i > N ÷ 2 + 1
+    freq_idx = i > M ÷ 2 + 1 ? M - i + 2 : i
+    use_conj = i > M ÷ 2 + 1
     return j₁, freq_idx, use_conj
 end
 

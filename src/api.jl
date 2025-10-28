@@ -336,6 +336,31 @@ function spectral_interp(x, values, c_tilde, grid_size::Int)
 end
 
 
+function spectral_interp(x, values::Tuple, c_tilde, grid_size::Tuple{Int, Int})
+    N, M = grid_size
+
+    s = 0.0 + 0.0im
+    @inbounds for (row, col, v) ∈ zip(values...)
+        i1 = row - (N + 1)
+        i2 = col - (M + 1)
+        s += v * basis_function_fourier(x, (i1, i2), c_tilde)
+    end
+    return s
+end
+
+function spectral_interp(x, values::Tuple, c_tilde, grid_size::Int)
+    N = grid_size
+
+    s = 0.0 + 0.0im
+    @inbounds for (row, col, v) ∈ zip(values...)
+        i1 = row - (N + 1)
+        i2 = col - (N + 1)
+        s += v * basis_function_fourier(x, (i1, i2), c_tilde)
+    end
+    return s
+end
+
+
 function eval_qp_green_fourier_series(x, params::NamedTuple, fourier_coeffs, Yε_cache::IntegrationCache; nb_terms=10)
 
     α, k, c = (params.alpha, params.k, params.c)
@@ -720,4 +745,12 @@ function hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Y
                            Lₙ₂₂_t_x₂ + exp_term * sing_x2x2) - singularity
         end
     end
+end
+
+
+function sparsify_fourier_coeffs(fourier_coeffs; threshold=1e-10)
+    sparse_values = copy(fourier_coeffs)
+    sparse_values[abs.(sparse_values) .< threshold] .= 0.0 + 0.0im
+    sparse_matrix = sparse(sparse_values)
+    return findnz(sparse_matrix)
 end

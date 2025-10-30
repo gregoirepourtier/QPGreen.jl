@@ -35,7 +35,7 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
     c₁, c₂ = c, (c + c̃) / 2
     T = typeof(α)
 
-    # Check that βₙ ≠ 0, i.e. √(k^2 - αₙ^2) ≠ 0 to ensure that the eigenfunction expansion is well-defined
+    # Check that βₙ ≠ 0, i.e. (k^2 - αₙ^2) ≠ 0 to ensure that the eigenfunction expansion is well-defined
     check_compatibility(α, k)
 
     # Parameters for the cutoff functions
@@ -133,9 +133,16 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
+            αₙ = α + j₁
+            βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
+
             # Compute L̂ⱼ, L̂ⱼ₁, L̂ⱼ₂, L̂ⱼ₁₁, L̂ⱼ₁₂, L̂ⱼ₂₂ coefficients
             @inbounds @batch for j ∈ 1:N
                 j₂ = fft_cache.j_idx[j]
+
+                if j₂ * π / c̃ - βₙ == 0 || j₂ * π / c̃ + βₙ == 0
+                    error("Division by zero encountered in frequency component computation for (i=$i, j=$j). Perturb parameters c̃.")
+                end
 
                 cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
@@ -156,9 +163,16 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
+            αₙ = α + j₁
+            βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
+
             # Compute L̂ⱼ, L̂ⱼ₁, L̂ⱼ₂ coefficients
             @inbounds @batch for j ∈ 1:N
                 j₂ = fft_cache.j_idx[j]
+
+                if j₂ * π / c̃ - βₙ == 0 || j₂ * π / c̃ + βₙ == 0
+                    error("Division by zero encountered in frequency component computation for (i=$i, j=$j). Perturb parameters c̃.")
+                end
 
                 cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
@@ -173,9 +187,16 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, h
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
+            αₙ = α + j₁
+            βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
+
             # Compute L̂ⱼ coefficients
             @inbounds @batch for j ∈ 1:N
                 j₂ = fft_cache.j_idx[j]
+
+                if j₂ * π / c̃ - βₙ == 0 || j₂ * π / c̃ + βₙ == 0
+                    error("Division by zero encountered in frequency component computation for (i=$i, j=$j). Perturb parameters c̃.")
+                end
 
                 cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])

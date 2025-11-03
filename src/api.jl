@@ -138,9 +138,16 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, M, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
+            αₙ = α + j₁
+            βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
+
             # Compute L̂ⱼ, L̂ⱼ₁, L̂ⱼ₂, L̂ⱼ₁₁, L̂ⱼ₁₂, L̂ⱼ₂₂ coefficients
             @inbounds @batch for j ∈ 1:M
                 j₂ = fft_cache.j2_idx[j]
+
+                if j₂ * π / c̃ - βₙ == 0 || j₂ * π / c̃ + βₙ == 0
+                    error("Division by zero encountered in frequency component computation for (i=$i, j=$j). Perturb parameters c̃.")
+                end
 
                 cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
@@ -161,9 +168,16 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, M, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
+            αₙ = α + j₁
+            βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
+
             # Compute L̂ⱼ, L̂ⱼ₁, L̂ⱼ₂ coefficients
             @inbounds @batch for j ∈ 1:M
                 j₂ = fft_cache.j2_idx[j]
+
+                if j₂ * π / c̃ - βₙ == 0 || j₂ * π / c̃ + βₙ == 0
+                    error("Division by zero encountered in frequency component computation for (i=$i, j=$j). Perturb parameters c̃.")
+                end
 
                 cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
@@ -178,9 +192,16 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, M, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
+            αₙ = α + j₁
+            βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
+
             # Compute L̂ⱼ coefficients
             @inbounds @batch for j ∈ 1:M
                 j₂ = fft_cache.j2_idx[j]
+
+                if j₂ * π / c̃ - βₙ == 0 || j₂ * π / c̃ + βₙ == 0
+                    error("Division by zero encountered in frequency component computation for (i=$i, j=$j). Perturb parameters c̃.")
+                end
 
                 cst = (α + j₁)^2 + j₂^2 * π^2 / c̃^2 - k^2
                 F̂ⱼ = -1 / cst * (-1 / (2 * √(π * c̃)) + im / 4 * Φ̂_freq[i, j])
@@ -248,7 +269,7 @@ end
 
 
 """
-    eval_qp_green(x, params::NamedTuple, interpolator, Yε_cache::IntegrationCache; nb_terms=50)
+    eval_qp_green(x, params::NamedTuple, interpolator, Yε_cache::IntegrationCache; nb_terms=40)
 
 Compute the quasiperiodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback.
 
@@ -275,7 +296,7 @@ Compute the quasiperiodic Green's function ``G(x)`` using the FFT-based method [
 
   - `G`: The approximate value of the quasiperiodic Green's function at point `x`
 """
-function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=10) where {T}
+function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=40) where {T}
 
     α, k, c = (params.alpha, params.k, params.c)
 
@@ -391,7 +412,7 @@ function eval_qp_green_fourier_series(x, params::NamedTuple, fourier_coeffs, Yε
 end
 
 """
-    eval_smooth_qp_green(x, params::NamedTuple, value_interpolator; nb_terms=50)
+    eval_smooth_qp_green(x, params::NamedTuple, value_interpolator; nb_terms=40)
 
 Compute the smooth α-quasi-periodic Green's function ``G_0(x)`` (i.e. without the term ``H_0^{(1)(k|x|)}`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback.
 
@@ -417,7 +438,7 @@ Compute the smooth α-quasi-periodic Green's function ``G_0(x)`` (i.e. without t
 
   - `G_0`: The approximate value of the quasiperiodic Green's function at point `x`
 """
-function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=10) where {T}
+function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=40) where {T}
 
     α, c, k = (params.alpha, params.c, params.k)
 
@@ -455,7 +476,7 @@ function eval_smooth_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_
 end
 
 """
-    grad_qp_green(x, params::NamedTuple, grad::NamedTuple, Yε_cache::IntegrationCache; nb_terms=50)
+    grad_qp_green(x, params::NamedTuple, grad::NamedTuple, Yε_cache::IntegrationCache; nb_terms=40)
 
 Compute the gradient of the α-quasi-periodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback.
 
@@ -483,7 +504,7 @@ Compute the gradient of the α-quasi-periodic Green's function ``G(x)`` using th
   - `∇G`: The approximate value of the gradient of the quasiperiodic Green's function at point `x`
 """
 function grad_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                       nb_terms=10) where {T1, T2}
+                       nb_terms=40) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 
@@ -522,7 +543,7 @@ function grad_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cach
 end
 
 """
-    grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple; nb_terms=50)
+    grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple; nb_terms=40)
 
 Compute the gradient of the smooth α-quasi-periodic Green's function using the FFT-based method [Zhang2018](@cite) with series expansion fallback.
 
@@ -549,7 +570,7 @@ Compute the gradient of the smooth α-quasi-periodic Green's function using the 
   - `∇G_0`: The approximate value of the gradient of the smooth quasiperiodic Green's function at point `x`
 """
 function grad_smooth_qp_green(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                              nb_terms=10) where {T1, T2}
+                              nb_terms=40) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 
@@ -602,7 +623,7 @@ end
 
 
 """
-    hess_qp_green(x, params::NamedTuple, hess::NamedTuple, Yε_cache::IntegrationCache; nb_terms=50)
+    hess_qp_green(x, params::NamedTuple, hess::NamedTuple, Yε_cache::IntegrationCache; nb_terms=40)
 
 Compute the Hessian of the α-quasi-periodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback.
 
@@ -630,7 +651,7 @@ Compute the Hessian of the α-quasi-periodic Green's function ``G(x)`` using the
   - `HG`: The approximate value of the Hessian of the quasiperiodic Green's function at point `x`
 """
 function hess_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                       nb_terms=10) where {T1, T2}
+                       nb_terms=40) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 
@@ -673,7 +694,7 @@ function hess_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_cach
 end
 
 """
-    hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple; nb_terms=50)
+    hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple; nb_terms=40)
 
 Compute the Hessian of the smooth α-quasi-periodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback.
 
@@ -700,7 +721,7 @@ Compute the Hessian of the smooth α-quasi-periodic Green's function ``G(x)`` us
   - `HG`: The approximate value of the Hessian of the smooth quasiperiodic Green's function at point `x`
 """
 function hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                              nb_terms=10) where {T1, T2}
+                              nb_terms=40) where {T1, T2}
 
     α, k, c = (params.alpha, params.k, params.c)
 

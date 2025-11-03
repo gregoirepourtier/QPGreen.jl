@@ -39,7 +39,7 @@ function init_qp_green_fft_asymptotic(params::NamedTuple, grid_size::Integer; gr
     c₁, c₂ = c, (c + c̃) / 2
     T = typeof(α)
 
-    # Check that βₙ ≠ 0, i.e. √(k^2 - αₙ^2) ≠ 0 to ensure that the eigenfunction expansion is well-defined
+    # Check that βₙ ≠ 0, i.e. (k^2 - αₙ^2) ≠ 0 to ensure that the eigenfunction expansion is well-defined
     check_compatibility(α, k)
 
     # Parameters for the cutoff functions
@@ -146,9 +146,17 @@ function init_qp_green_fft_asymptotic(params::NamedTuple, grid_size::Integer; gr
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
+            αₙ = α + j₁
+            βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
+
             # Compute L̂ⱼ, L̂ⱼ₁, L̂ⱼ₂ coefficients
             @inbounds @batch for j ∈ 1:N
                 j₂ = fft_cache.j_idx[j]
+
+                if j₂ * π / c̃ - βₙ == 0 || j₂ * π / c̃ + βₙ == 0
+                    error("Division by zero encountered in frequency component computation for (i=$i, j=$j). Perturb parameters c̃.")
+                end
+
                 Φ̂₁ = Φ̂₁_freq[freq_idx, j]
                 Φ̂₂ = use_conj ? Φ̂₂_freq[freq_idx, j] : conj(Φ̂₂_freq[freq_idx, j])
                 Φ̂₃ = use_conj ? Φ̂₃_freq[freq_idx, j] : conj(Φ̂₃_freq[freq_idx, j])
@@ -167,9 +175,17 @@ function init_qp_green_fft_asymptotic(params::NamedTuple, grid_size::Integer; gr
         @inbounds for i ∈ 1:N
             j₁, freq_idx, use_conj = process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
 
+            αₙ = α + j₁
+            βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
+
             # Compute L̂ⱼ coefficients
             @inbounds @batch for j ∈ 1:N
                 j₂ = fft_cache.j_idx[j]
+
+                if j₂ * π / c̃ - βₙ == 0 || j₂ * π / c̃ + βₙ == 0
+                    error("Division by zero encountered in frequency component computation for (i=$i, j=$j). Perturb parameters c̃.")
+                end
+
                 Φ̂₁ = Φ̂₁_freq[freq_idx, j]
                 Φ̂₂ = use_conj ? Φ̂₂_freq[freq_idx, j] : conj(Φ̂₂_freq[freq_idx, j])
 
@@ -205,7 +221,7 @@ end
 
 
 """
-    eval_qp_green_asymptotic(x, params::NamedTuple, interpolator, Yε_cache::IntegrationCache; nb_terms=50)
+    eval_qp_green_asymptotic(x, params::NamedTuple, interpolator, Yε_cache::IntegrationCache; nb_terms=40)
 
 Compute the quasiperiodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback. Here to remove the singularity we use its asymptotic expansion.
 
@@ -232,7 +248,7 @@ Compute the quasiperiodic Green's function ``G(x)`` using the FFT-based method [
 
   - `G`: The approximate value of the quasiperiodic Green's function at point `x`
 """
-function eval_qp_green_asymptotic(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=50) where {T}
+function eval_qp_green_asymptotic(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=40) where {T}
 
     α, c = (params.alpha, params.c)
 
@@ -256,7 +272,7 @@ function eval_qp_green_asymptotic(x, params::NamedTuple, value_interpolator::T, 
 end
 
 """
-    eval_smooth_qp_green_asymptotic(x, params::NamedTuple, value_interpolator, Yε_cache::IntegrationCache; nb_terms=50)
+    eval_smooth_qp_green_asymptotic(x, params::NamedTuple, value_interpolator, Yε_cache::IntegrationCache; nb_terms=40)
 
 Compute the smooth α-quasi-periodic Green's function ``G_0(x)`` (i.e. without the term ``H_0^{(1)(k|x|)}`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback. Here to remove the singularity we use its asymptotic expansion.
 
@@ -284,7 +300,7 @@ Compute the smooth α-quasi-periodic Green's function ``G_0(x)`` (i.e. without t
   - `G_0`: The approximate value of the quasiperiodic Green's function at point `x`
 """
 function eval_smooth_qp_green_asymptotic(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache;
-                                         nb_terms=50) where {T}
+                                         nb_terms=40) where {T}
 
     α, c, k = (params.alpha, params.c, params.k)
 
@@ -316,7 +332,7 @@ end
 
 
 """
-    grad_qp_green_asymptotic(x, params::NamedTuple, grad::NamedTuple, Yε_cache::IntegrationCache; nb_terms=50)
+    grad_qp_green_asymptotic(x, params::NamedTuple, grad::NamedTuple, Yε_cache::IntegrationCache; nb_terms=40)
 
 Compute the gradient of the α-quasi-periodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback. Here to remove the singularity we use its asymptotic expansion.
 
@@ -344,7 +360,7 @@ Compute the gradient of the α-quasi-periodic Green's function ``G(x)`` using th
   - `∇G`: The approximate value of the gradient of the quasiperiodic Green's function at point `x`
 """
 function grad_qp_green_asymptotic(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                                  nb_terms=50) where {T1, T2}
+                                  nb_terms=40) where {T1, T2}
 
     α, c = (params.alpha, params.c)
 
@@ -370,7 +386,7 @@ function grad_qp_green_asymptotic(x, params::NamedTuple, grad::NamedTuple{T1, T2
 end
 
 """
-    grad_smooth_qp_green_asymptotic(x, params::NamedTuple, grad::NamedTuple, Yε_cache::IntegrationCache; nb_terms=50)
+    grad_smooth_qp_green_asymptotic(x, params::NamedTuple, grad::NamedTuple, Yε_cache::IntegrationCache; nb_terms=40)
 
 Compute the gradient of the smooth α-quasi-periodic Green's function using the FFT-based method [Zhang2018](@cite) with series expansion fallback. Here to remove the singularity we use its asymptotic expansion.
 
@@ -398,7 +414,7 @@ Compute the gradient of the smooth α-quasi-periodic Green's function using the 
   - `∇G_0`: The approximate value of the gradient of the smooth quasiperiodic Green's function at point `x`
 """
 function grad_smooth_qp_green_asymptotic(x, params::NamedTuple, grad::NamedTuple{T1, T2}, Yε_cache::IntegrationCache;
-                                         nb_terms=50) where {T1, T2}
+                                         nb_terms=40) where {T1, T2}
 
     α, c, k = (params.alpha, params.c, params.k)
 

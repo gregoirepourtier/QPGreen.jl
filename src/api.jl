@@ -53,8 +53,8 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
     (grid_size_x, grid_size_y) = typeof(grid_size) <: Integer ? (grid_size, grid_size) : (grid_size[1], grid_size[2])
     N = 2 * grid_size_x
     M = 2 * grid_size_y
-    x_grid = range(-π, π - π / grid_size_x; length=N)
-    y_grid = range(-c̃, c̃ - c̃ / grid_size_y; length=M)
+    x_grid = (-π):(π / grid_size_x):(π - π / grid_size_x + 1e-15) # range(-π, π - π / grid_size_x; length=N)
+    y_grid = (-c̃):(c̃ / grid_size_y):(c̃ - c̃ / grid_size_y + 1e-15) # range(-c̃, c̃ - c̃ / grid_size_y; length=M)
 
     # Preallocate FFT workspace and matrices for FFT sample points
     fft_cache = FFTCache(M, grid_size_x, grid_size_y, c̃, T)

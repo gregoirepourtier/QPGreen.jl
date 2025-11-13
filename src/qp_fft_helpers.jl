@@ -6,6 +6,15 @@
 Calculate the function Φ (removal of the singularity in the Fourier space in the case where you use
 the Hankel function directly and not its asymptotic form).
 """
+function Φ(x, x_norm, k, cache_x1::IntegrationCache, cache_x2::IntegrationCache)
+    return -2 * k * Bessels.hankelh1(1, k * x_norm) *
+           (x[1] / x_norm * Yε_1st_der(x[1], cache_x1) * Yε(x[2], cache_x2) +
+            x[2] / x_norm * Yε(x[1], cache_x1) * Yε_1st_der(x[2], cache_x2)) +
+           Bessels.hankelh1(0, k * x_norm) * (Yε_2nd_der(x[1], cache_x1) * Yε(x[2], cache_x2) +
+            Yε(x[1], cache_x1) * Yε_2nd_der(x[2], cache_x2))
+end
+
+
 function Φ(x, k, cache::IntegrationCache)
     return -2 * k * Bessels.hankelh1(1, k * x) * Yε_1st_der(x, cache) +
            Bessels.hankelh1(0, k * x) * (Yε_1st_der(x, cache) / x + Yε_2nd_der(x, cache))
@@ -172,6 +181,12 @@ Calculate the function `f_hankel`.
 
     - The value of the function `f_hankel` at the point `x`.
 """
+function f_hankel(x, x_norm, k, cache_x1::IntegrationCache, cache_x2::IntegrationCache)
+    bessel_term = im / 4 * hankelh1(0, k * x_norm)
+
+    bessel_term * Yε(x[1], cache_x1) * Yε(x[2], cache_x2)
+end
+
 function f_hankel(x_norm, k, cache::IntegrationCache)
     bessel_term = im / 4 * hankelh1(0, k * x_norm)
 

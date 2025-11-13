@@ -42,12 +42,23 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
     check_compatibility(α, k)
 
     # Parameters for the cutoff functions
-    params_χ = IntegrationParameters(c₁, c₂, order)
-    params_Yε = IntegrationParameters(ε, 2ε, order)
+    # params_χ = IntegrationParameters(c₁, c₂, order)
+    params_χ = IntegrationParameters(c, c̃, order)
+    # params_χ = IntegrationParameters(c, 2c, order)
+    # params_Yε = IntegrationParameters(ε, 2ε, order)
+    params_Yε = IntegrationParameters(0.0, c̃, order)
+
+    # params_Yε_x1 = IntegrationParameters(0.0 + ε, π - ε, order)
+    # params_Yε_x2 = IntegrationParameters(0.0 + ε, c̃ - ε, order)
+
+    # params_Yε_x1 = IntegrationParameters(ε, 2ε, order)
+    # params_Yε_x2 = IntegrationParameters(ε, 2ε, order)
 
     # Generate caches for the cutoff functions
     χ_cache = IntegrationCache(params_χ, type_cutoff)
     Yε_cache = IntegrationCache(params_Yε, type_cutoff)
+    # Yε_x1_cache = IntegrationCache(params_Yε_x1, type_cutoff)
+    # Yε_x2_cache = IntegrationCache(params_Yε_x2, type_cutoff)
 
     # Generate the grid
     (grid_size_x, grid_size_y) = typeof(grid_size) <: Integer ? (grid_size, grid_size) : (grid_size[1], grid_size[2])
@@ -99,6 +110,7 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
         @inbounds @batch for i ∈ axes(x_grid, 1), j ∈ axes(y_grid, 1)
             pt = SVector(x_grid[i], y_grid[j])
             r = norm(pt)
+            # Φ_eval[i, j] = iszero(r) ? zero(Complex{T}) : Φ(abs.(pt), r, k, Yε_x1_cache, Yε_x2_cache)
             Φ_eval[i, j] = iszero(r) ? zero(Complex{T}) : Φ(r, k, Yε_cache)
         end
     end
@@ -260,6 +272,10 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
 
     # return (value=value_interpolator,
     #         cache=Yε_cache)
+    # return (value=value_interpolator,
+    #         mat=L̂ⱼ,
+    #         grid=(collect(x_grid), collect(y_grid)),
+    #         caches=(Yε_x1_cache, Yε_x2_cache))
     return (value=value_interpolator,
             mat=L̂ⱼ,
             grid=(collect(x_grid), collect(y_grid)),
@@ -296,6 +312,44 @@ Compute the quasiperiodic Green's function ``G(x)`` using the FFT-based method [
 
   - `G`: The approximate value of the quasiperiodic Green's function at point `x`
 """
+function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_x1_cache::IntegrationCache, Yε_x2_cache::IntegrationCache;
+                       nb_terms=40) where {T}
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        return eigfunc_expansion(x, params; nb_terms=nb_terms)
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ_t_x₂ = value_interpolator(t, x[2])
+
+        x_norm = norm((t, x[2]))
+
+
+
+        sing = f_hankel(abs.((t, x[2])), x_norm, k, Yε_x1_cache, Yε_x2_cache)
+
+
+        K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+        return exp(im * α * x[1]) * K_t_x₂
+
+        # Get K(t, x₂)
+        # if x_norm <= Yε_cache.params.a
+        #     K_t_x₂ = Lₙ_t_x₂
+        #     return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
+        # elseif x_norm >= Yε_cache.params.b
+        #     return exp(im * α * x[1]) * Lₙ_t_x₂
+        # else
+        #     sing = f_hankel(x_norm, k, Yε_cache)
+        #     K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+        #     return exp(im * α * x[1]) * K_t_x₂
+        # end
+    end
+end
+
 function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=40) where {T}
 
     α, k, c = (params.alpha, params.k, params.c)
@@ -311,17 +365,25 @@ function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::
 
         x_norm = norm((t, x[2]))
 
+
+
+        sing = f_hankel(x_norm, k, Yε_cache)
+
+
+        K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+        return exp(im * α * x[1]) * K_t_x₂
+
         # Get K(t, x₂)
-        if x_norm <= Yε_cache.params.a
-            K_t_x₂ = Lₙ_t_x₂
-            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
-        elseif x_norm >= Yε_cache.params.b
-            return exp(im * α * x[1]) * Lₙ_t_x₂
-        else
-            sing = f_hankel(x_norm, k, Yε_cache)
-            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
-            return exp(im * α * x[1]) * K_t_x₂
-        end
+        # if x_norm <= Yε_cache.params.a
+        #     K_t_x₂ = Lₙ_t_x₂
+        #     return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
+        # elseif x_norm >= Yε_cache.params.b
+        #     return exp(im * α * x[1]) * Lₙ_t_x₂
+        # else
+        #     sing = f_hankel(x_norm, k, Yε_cache)
+        #     K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+        #     return exp(im * α * x[1]) * K_t_x₂
+        # end
     end
 end
 

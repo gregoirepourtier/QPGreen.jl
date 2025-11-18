@@ -225,16 +225,18 @@ An `FFTCache` object containing:
 """
 function FFTCache(M::Integer, grid_size_x::Integer, grid_size_y::Integer, c̃, ::Type{T}=Float64) where {T <: Real}
 
+    nb_points = 2 * M + 1
+
     j1_idx = Vector{Int}((-grid_size_x):(grid_size_x - 1))
     j2_idx = Vector{Int}((-grid_size_y):(grid_size_y - 1))
-    t_j_fft = range(-c̃, c̃; length=2 * M + 1) |> collect
+    t_j_fft = range(-c̃, c̃; length=nb_points) |> collect
 
     # Preallocate all vectors with type `Complex{T}`
-    eval_int_fft_1D = Vector{Complex{T}}(undef, 2 * M + 1)
-    shift_sample_eval_int = Vector{Complex{T}}(undef, 2 * M)
-    fft_eval = Vector{Complex{T}}(undef, 2 * M)
-    shift_fft_1d = Vector{Complex{T}}(undef, 2 * M)
-    fft_eval_flipped = transpose(Vector{Complex{T}}(undef, 2 * M))
+    eval_int_fft_1D = Vector{Complex{T}}(undef, nb_points)
+    shift_sample_eval_int = Vector{Complex{T}}(undef, nb_points - 1)
+    fft_eval = Vector{Complex{T}}(undef, nb_points - 1)
+    shift_fft_1d = Vector{Complex{T}}(undef, nb_points - 1)
+    fft_eval_flipped = transpose(Vector{Complex{T}}(undef, nb_points - 1))
 
     return FFTCache(j1_idx, j2_idx, t_j_fft, eval_int_fft_1D, shift_sample_eval_int, fft_eval, shift_fft_1d, fft_eval_flipped)
 end

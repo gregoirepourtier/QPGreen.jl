@@ -45,11 +45,11 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
     # params_χ = IntegrationParameters(c₁, c₂, order)
     params_χ = IntegrationParameters(c, c̃, order)
     # params_χ = IntegrationParameters(c, 2c, order)
-    # params_Yε = IntegrationParameters(ε, 2ε, order)
-    params_Yε = IntegrationParameters(0.0, c̃, order)
 
-    # params_Yε_x1 = IntegrationParameters(0.0 + ε, π - ε, order)
-    # params_Yε_x2 = IntegrationParameters(0.0 + ε, c̃ - ε, order)
+    # params_Yε = IntegrationParameters(ε, 2ε, order)
+    params_Yε = IntegrationParameters(ε, c̃, order)
+    # params_Yε_x1 = IntegrationParameters(ε, π - ε, order)
+    # params_Yε_x2 = IntegrationParameters(ε, c̃ - ε, order)
 
     # params_Yε_x1 = IntegrationParameters(ε, 2ε, order)
     # params_Yε_x2 = IntegrationParameters(ε, 2ε, order)
@@ -365,25 +365,17 @@ function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::
 
         x_norm = norm((t, x[2]))
 
-
-
-        sing = f_hankel(x_norm, k, Yε_cache)
-
-
-        K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
-        return exp(im * α * x[1]) * K_t_x₂
-
         # Get K(t, x₂)
-        # if x_norm <= Yε_cache.params.a
-        #     K_t_x₂ = Lₙ_t_x₂
-        #     return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
-        # elseif x_norm >= Yε_cache.params.b
-        #     return exp(im * α * x[1]) * Lₙ_t_x₂
-        # else
-        #     sing = f_hankel(x_norm, k, Yε_cache)
-        #     K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
-        #     return exp(im * α * x[1]) * K_t_x₂
-        # end
+        if x_norm <= Yε_cache.params.a
+            K_t_x₂ = Lₙ_t_x₂
+            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) * Lₙ_t_x₂
+        else
+            sing = f_hankel(x_norm, k, Yε_cache)
+            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            return exp(im * α * x[1]) * K_t_x₂
+        end
     end
 end
 

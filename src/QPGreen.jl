@@ -11,6 +11,7 @@ using DocStringExtensions
 using Polyester
 using StaticArrays
 using SparseArrays
+using FourierSeriesEvaluators
 
 using .MathConstants: eulergamma
 

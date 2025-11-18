@@ -270,6 +270,10 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
                 cache=Yε_cache)
     end
 
+    L_FourierSeries = FourierSeries(L̂ⱼ ./ (2 * √(π * c̃)); period=(2π, 2 * params.c_tilde),
+                                    offset=(-grid_size_x - 1, -grid_size_y - 1))
+    L_FourierSeries_alloc = FourierSeriesEvaluators.workspace_allocate(L_FourierSeries, (0.0, 0.0))
+
     # return (value=value_interpolator,
     #         cache=Yε_cache)
     # return (value=value_interpolator,
@@ -278,6 +282,7 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
     #         caches=(Yε_x1_cache, Yε_x2_cache))
     return (value=value_interpolator,
             mat=L̂ⱼ,
+            FourierSeries=L_FourierSeries_alloc,
             grid=(collect(x_grid), collect(y_grid)),
             cache=Yε_cache)
 end
@@ -436,7 +441,37 @@ function spectral_interp(x, values::Tuple, c_tilde, grid_size::Int)
 end
 
 
-function eval_qp_green_fourier_series(x, params::NamedTuple, fourier_coeffs, Yε_cache::IntegrationCache; nb_terms=10)
+function eval_qp_green_fourier_series_eff(x, params::NamedTuple, fourier_series, Yε_cache::IntegrationCache; nb_terms=40)
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        return eigfunc_expansion(x, params; nb_terms=nb_terms)
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ_t_x₂ = fourier_series((t, x[2]))
+
+        x_norm = norm((t, x[2]))
+
+        # Get K(t, x₂)
+        if x_norm <= Yε_cache.params.a
+            K_t_x₂ = Lₙ_t_x₂
+            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) * Lₙ_t_x₂
+        else
+            sing = f_hankel(x_norm, k, Yε_cache)
+            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            return exp(im * α * x[1]) * K_t_x₂
+        end
+    end
+end
+
+
+function eval_qp_green_fourier_series_full(x, params::NamedTuple, fourier_coeffs, Yε_cache::IntegrationCache; nb_terms=40)
 
     α, k, c = (params.alpha, params.k, params.c)
 

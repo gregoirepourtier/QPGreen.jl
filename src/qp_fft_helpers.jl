@@ -133,6 +133,26 @@ function get_K̂ⱼ!(K̂ⱼ, params::NamedTuple, M, i, fft_cache::FFTCache{T}, c
               1 / (2 * βₙ * (fft_cache.j2_idx * π / c̃ + βₙ)) * integral_2)
 end
 
+# function compute_K_hat(j1, j2, α, k, c_tilde, X_prime)
+function compute_K_hat(params::NamedTuple, j₂, αₙ, βₙ, cache)
+
+    k, c̃ = (params.k, params.c_tilde)
+
+    denom1 = (αₙ)^2 + (j₂ * π / c̃)^2 - k^2
+    denom2 = 2 * βₙ * (j₂ * π / c̃ - βₙ)
+    denom3 = 2 * βₙ * (j₂ * π / c̃ + βₙ)
+
+    # First integral
+    I1, _ = quadgk(x2 -> exp(im * βₙ * x2) * χ_der(x2, cache) * exp(-im * (j₂ * π / c̃) * x2), 0, c̃)
+
+    # Second integral
+    I2, _ = quadgk(x2 -> exp(im * βₙ * x2) * χ_der(x2, cache) * exp(im * (j₂ * π / c̃) * x2), 0, c̃)
+
+    K_hat = 1 / (2 * sqrt(π * c̃)) * (1 / denom1 + I1 / denom2 - I2 / denom3)
+
+    return K_hat
+end
+
 
 
 """

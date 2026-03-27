@@ -1,4 +1,5 @@
 # API to compute the α quasi-periodic Green's function for the 2D Helmholtz equation using the FFT-based algorithm from [Zhang2018](@cite).
+
 """
     init_qp_green_fft(params::NamedTuple, grid_size::Integer; grad=false, hess=false)
 
@@ -26,6 +27,9 @@ Preparation step of the FFT-based algorithm.
 
     - A NamedTuple with fields
             + `value`: Spline interpolator for the function `Ln`.
+            + `mat`: Matrix of Fourier coefficients `L̂ⱼ`.
+            + `FourierSeries`: Fourier series representation of `Ln` for efficient evaluation at arbitrary points.
+            + `grid`: Tuple of the spatial grid points in `x` and `y` directions.
             + `grad`: Tuple of spline interpolators for the first derivatives of `Ln` (`∂/∂x₁`, `∂/∂x₂`), if `grad=true`.
             + `hess`: Tuple of spline interpolators for the second derivatives of `Ln` (`∂²/∂x₁²`, `∂²/∂x₁∂x₂`, `∂²/∂x₂²`), if `hess=true`.
             + `cache`: Precomputed integration cache for reuse in later computations.
@@ -44,15 +48,12 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
     # Parameters for the cutoff functions
     # params_χ = IntegrationParameters(c₁, c₂, order)
     params_χ = IntegrationParameters(c, c̃, order)
-    # params_χ = IntegrationParameters(c, 2c, order)
 
     # params_Yε = IntegrationParameters(ε, 2ε, order)
-    params_Yε = IntegrationParameters(ε, c̃, order)
-    # params_Yε_x1 = IntegrationParameters(ε, π - ε, order)
-    # params_Yε_x2 = IntegrationParameters(ε, c̃ - ε, order)
+    params_Yε = IntegrationParameters(ε, c̃ - ε, order)
 
-    # params_Yε_x1 = IntegrationParameters(ε, 2ε, order)
-    # params_Yε_x2 = IntegrationParameters(ε, 2ε, order)
+    # params_Yε_x1 = IntegrationParameters(ε, c̃, order)
+    # params_Yε_x2 = IntegrationParameters(ε, c̃, order)
 
     # Generate caches for the cutoff functions
     χ_cache = IntegrationCache(params_χ, type_cutoff)
@@ -207,9 +208,13 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
             αₙ = α + j₁
             βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
 
+            # j₁ = fft_cache.j1_idx[i]
+
             # Compute L̂ⱼ coefficients
             @inbounds @batch for j ∈ 1:M
                 j₂ = fft_cache.j2_idx[j]
+
+                # K̂ⱼ = compute_K_hat(params, j₂, αₙ, βₙ, χ_cache)
 
                 if j₂ * π / c̃ - βₙ == 0 || j₂ * π / c̃ + βₙ == 0
                     error("Division by zero encountered in frequency component computation for (i=$i, j=$j). Perturb parameters c̃.")
@@ -275,19 +280,17 @@ function init_qp_green_fft(params::NamedTuple, grid_size::Union{Integer, Tuple{I
     L_FourierSeries_alloc = FourierSeriesEvaluators.workspace_allocate(L_FourierSeries, (0.0, 0.0))
 
     # return (value=value_interpolator,
-    #         cache=Yε_cache)
-    # return (value=value_interpolator,
     #         mat=L̂ⱼ,
+    #         FourierSeries=L_FourierSeries_alloc,
     #         grid=(collect(x_grid), collect(y_grid)),
     #         caches=(Yε_x1_cache, Yε_x2_cache))
+
     return (value=value_interpolator,
             mat=L̂ⱼ,
             FourierSeries=L_FourierSeries_alloc,
             grid=(collect(x_grid), collect(y_grid)),
             cache=Yε_cache)
 end
-
-
 
 """
     eval_qp_green(x, params::NamedTuple, interpolator, Yε_cache::IntegrationCache; nb_terms=40)
@@ -316,6 +319,159 @@ Compute the quasiperiodic Green's function ``G(x)`` using the FFT-based method [
 # Returns
 
   - `G`: The approximate value of the quasiperiodic Green's function at point `x`
+"""
+function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=40) where {T}
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        return eigfunc_expansion(x, params; nb_terms=nb_terms)
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ_t_x₂ = value_interpolator(t, x[2])
+
+        x_norm = norm((t, x[2]))
+
+        # Get K(t, x₂)
+        if x_norm <= Yε_cache.params.a
+            K_t_x₂ = Lₙ_t_x₂
+            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) * Lₙ_t_x₂
+        else
+            sing = f_hankel(x_norm, k, Yε_cache)
+            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            return exp(im * α * x[1]) * K_t_x₂
+        end
+    end
+end
+
+"""
+    eval_qp_green_fourier_series_eff(x, params::NamedTuple, fourier_series, Yε_cache::IntegrationCache; nb_terms=40)
+
+Compute the quasiperiodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback, where the Fourier series representation of `Ln` is used for efficient evaluation at arbitrary points.
+"""
+function eval_qp_green_fourier_series_eff(x, params::NamedTuple, fourier_series, Yε_cache::IntegrationCache; nb_terms=40)
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        return eigfunc_expansion(x, params; nb_terms=nb_terms)
+    else
+        t = get_t(x[1])
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ_t_x₂ = fourier_series((t, x[2]))
+
+        x_norm = norm((t, x[2]))
+
+        # Get K(t, x₂)
+        if x_norm <= Yε_cache.params.a
+            K_t_x₂ = Lₙ_t_x₂
+            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) * Lₙ_t_x₂
+        else
+            sing = f_hankel(x_norm, k, Yε_cache)
+            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            return exp(im * α * x[1]) * K_t_x₂
+        end
+    end
+end
+
+"""
+    eval_qp_green_fourier_series_eff_smooth(x, params::NamedTuple, fourier_series, Yε_cache::IntegrationCache; nb_terms=40)
+
+Compute the smooth part of the quasiperiodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback, where the Fourier series representation of `Ln` is used for efficient evaluation at arbitrary points.
+"""
+function eval_qp_green_fourier_series_eff_smooth(x, params::NamedTuple, fourier_series, Yε_cache::IntegrationCache; nb_terms=40)
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        x_norm = norm(x)
+        singularity = im / 4 * hankelh1(0, k * x_norm)
+        return eigfunc_expansion(x, params; nb_terms=nb_terms) - singularity
+    else
+        t = get_t(x[1])
+
+        x_norm = norm((t, x[2]))
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ_t_x₂ = fourier_series((t, x[2]))
+
+        if x_norm <= Yε_cache.params.a
+            if t == x[1]
+                return exp(im * α * x[1]) * Lₙ_t_x₂
+            else
+                bessel_term_1 = im / 4 * hankelh1(0, k * x_norm)
+                K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * bessel_term_1
+                bessel_term_2 = im / 4 * hankelh1(0, k * norm(x))
+                return exp(im * α * x[1]) * K_t_x₂ - bessel_term_2
+            end
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) * Lₙ_t_x₂ - im / 4 * hankelh1(0, k * norm(x))
+        else
+            sing = f_hankel(x_norm, k, Yε_cache)
+            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            bessel_term = im / 4 * hankelh1(0, k * norm(x))
+            return exp(im * α * x[1]) * K_t_x₂ - bessel_term
+        end
+    end
+end
+
+"""
+    eval_qp_green_NUFFT_smooth(x, params::NamedTuple, fft_coeffs, Yε_cache::IntegrationCache; nb_terms=40)
+
+Compute the smooth part of the quasiperiodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback, where the Fourier coefficients of `Ln` are used for efficient evaluation at arbitrary points via NUFFT.
+"""
+function eval_qp_green_NUFFT_smooth(x, params::NamedTuple, fft_coeffs, Yε_cache::IntegrationCache; nb_terms=40)
+
+    α, k, c = (params.alpha, params.k, params.c)
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        x_norm = norm(x)
+        singularity = im / 4 * hankelh1(0, k * x_norm)
+        return eigfunc_expansion(x, params; nb_terms=nb_terms) - singularity
+    else
+        t = get_t(x[1])
+
+        x_norm = norm((t, x[2]))
+
+        # Bicubic Interpolation to get Lₙ(t, x₂)
+        Lₙ_t_x₂ = fft_coeffs
+
+        if x_norm <= Yε_cache.params.a
+            if t == x[1]
+                return exp(im * α * x[1]) * Lₙ_t_x₂
+            else
+                bessel_term_1 = im / 4 * hankelh1(0, k * x_norm)
+                K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * bessel_term_1
+                bessel_term_2 = im / 4 * hankelh1(0, k * norm(x))
+                return exp(im * α * x[1]) * K_t_x₂ - bessel_term_2
+            end
+        elseif x_norm >= Yε_cache.params.b
+            return exp(im * α * x[1]) * Lₙ_t_x₂ - im / 4 * hankelh1(0, k * norm(x))
+        else
+            sing = f_hankel(x_norm, k, Yε_cache)
+            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
+            bessel_term = im / 4 * hankelh1(0, k * norm(x))
+            return exp(im * α * x[1]) * K_t_x₂ - bessel_term
+        end
+
+    end
+end
+
+"""
+    eval_qp_green(x, params::NamedTuple, value_interpolator, Yε_x1_cache::IntegrationCache, Yε_x2_cache::IntegrationCache; nb_terms=40)
+
+Compute the quasiperiodic Green's function ``G(x)`` using the FFT-based method [Zhang2018](@cite) with series expansion fallback, where the cutoff function `Yε` is decoupled.
 """
 function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_x1_cache::IntegrationCache, Yε_x2_cache::IntegrationCache;
                        nb_terms=40) where {T}
@@ -352,151 +508,6 @@ function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_x1_cach
         #     K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
         #     return exp(im * α * x[1]) * K_t_x₂
         # end
-    end
-end
-
-function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::IntegrationCache; nb_terms=40) where {T}
-
-    α, k, c = (params.alpha, params.k, params.c)
-
-    # Check if the point is outside the domain D_c
-    if abs(x[2]) > c
-        return eigfunc_expansion(x, params; nb_terms=nb_terms)
-    else
-        t = get_t(x[1])
-
-        # Bicubic Interpolation to get Lₙ(t, x₂)
-        Lₙ_t_x₂ = value_interpolator(t, x[2])
-
-        x_norm = norm((t, x[2]))
-
-        # Get K(t, x₂)
-        if x_norm <= Yε_cache.params.a
-            K_t_x₂ = Lₙ_t_x₂
-            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
-        elseif x_norm >= Yε_cache.params.b
-            return exp(im * α * x[1]) * Lₙ_t_x₂
-        else
-            sing = f_hankel(x_norm, k, Yε_cache)
-            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
-            return exp(im * α * x[1]) * K_t_x₂
-        end
-    end
-end
-
-function basis_function_fourier(x, j, c_tilde)
-    1 / (2 * √(π * c_tilde)) * exp(im * j[1] * x[1] + im * j[2] * π * x[2] / c_tilde)
-end
-
-function spectral_interp(x, values, c_tilde, grid_size::Tuple{Int, Int})
-    sum = 0.0 + 0.0im
-    N = grid_size[1]
-    M = grid_size[2]
-    for i1 ∈ (-N):(N - 1)
-        for i2 ∈ (-M):(M - 1)
-            j = (i1, i2)
-            phi_j = basis_function_fourier(x, j, c_tilde)
-            sum += values[i1 + N + 1, i2 + M + 1] * phi_j
-        end
-    end
-    return sum
-end
-
-function spectral_interp(x, values, c_tilde, grid_size::Int)
-    sum = 0.0 + 0.0im
-    N = grid_size
-    for i1 ∈ (-N):(N - 1)
-        for i2 ∈ (-N):(N - 1)
-            j = (i1, i2)
-            phi_j = basis_function_fourier(x, j, c_tilde)
-            sum += values[i1 + N + 1, i2 + N + 1] * phi_j
-        end
-    end
-    return sum
-end
-
-
-function spectral_interp(x, values::Tuple, c_tilde, grid_size::Tuple{Int, Int})
-    N, M = grid_size
-
-    s = 0.0 + 0.0im
-    @inbounds for (row, col, v) ∈ zip(values...)
-        i1 = row - (N + 1)
-        i2 = col - (M + 1)
-        s += v * basis_function_fourier(x, (i1, i2), c_tilde)
-    end
-    return s
-end
-
-function spectral_interp(x, values::Tuple, c_tilde, grid_size::Int)
-    N = grid_size
-
-    s = 0.0 + 0.0im
-    @inbounds for (row, col, v) ∈ zip(values...)
-        i1 = row - (N + 1)
-        i2 = col - (N + 1)
-        s += v * basis_function_fourier(x, (i1, i2), c_tilde)
-    end
-    return s
-end
-
-
-function eval_qp_green_fourier_series_eff(x, params::NamedTuple, fourier_series, Yε_cache::IntegrationCache; nb_terms=40)
-
-    α, k, c = (params.alpha, params.k, params.c)
-
-    # Check if the point is outside the domain D_c
-    if abs(x[2]) > c
-        return eigfunc_expansion(x, params; nb_terms=nb_terms)
-    else
-        t = get_t(x[1])
-
-        # Bicubic Interpolation to get Lₙ(t, x₂)
-        Lₙ_t_x₂ = fourier_series((t, x[2]))
-
-        x_norm = norm((t, x[2]))
-
-        # Get K(t, x₂)
-        if x_norm <= Yε_cache.params.a
-            K_t_x₂ = Lₙ_t_x₂
-            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
-        elseif x_norm >= Yε_cache.params.b
-            return exp(im * α * x[1]) * Lₙ_t_x₂
-        else
-            sing = f_hankel(x_norm, k, Yε_cache)
-            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
-            return exp(im * α * x[1]) * K_t_x₂
-        end
-    end
-end
-
-
-function eval_qp_green_fourier_series_full(x, params::NamedTuple, fourier_coeffs, Yε_cache::IntegrationCache; nb_terms=40)
-
-    α, k, c = (params.alpha, params.k, params.c)
-
-    # Check if the point is outside the domain D_c
-    if abs(x[2]) > c
-        return eigfunc_expansion(x, params; nb_terms=nb_terms)
-    else
-        t = get_t(x[1])
-
-        # Bicubic Interpolation to get Lₙ(t, x₂)
-        Lₙ_t_x₂ = spectral_interp((t, x[2]), fourier_coeffs.values, params.c_tilde, fourier_coeffs.grid_size)
-
-        x_norm = norm((t, x[2]))
-
-        # Get K(t, x₂)
-        if x_norm <= Yε_cache.params.a
-            K_t_x₂ = Lₙ_t_x₂
-            return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
-        elseif x_norm >= Yε_cache.params.b
-            return exp(im * α * x[1]) * Lₙ_t_x₂
-        else
-            sing = f_hankel(x_norm, k, Yε_cache)
-            K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
-            return exp(im * α * x[1]) * K_t_x₂
-        end
     end
 end
 
@@ -855,12 +866,4 @@ function hess_smooth_qp_green(x, params::NamedTuple, hess::NamedTuple{T1, T2}, Y
                            Lₙ₂₂_t_x₂ + exp_term * sing_x2x2) - singularity
         end
     end
-end
-
-
-function sparsify_fourier_coeffs(fourier_coeffs; threshold=1e-10)
-    sparse_values = copy(fourier_coeffs)
-    sparse_values[abs.(sparse_values) .< threshold] .= 0.0 + 0.0im
-    sparse_matrix = sparse(sparse_values)
-    return findnz(sparse_matrix)
 end

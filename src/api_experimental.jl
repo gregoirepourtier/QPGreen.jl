@@ -282,6 +282,8 @@ function init_qp_green_fft_BIE(params::NamedTuple, grid_size::Union{Integer, Tup
     fft_cache_BIE = params, L_FourierSeries_alloc, Yε_cache
     t, A = generate_SL_mat(params.k, N, R, 0.0, 0.0)
     A_inv = inv(A)
+    # f = factorize(A)
+    # f \ 
 
     # bd_pts_list = SVector{2 * N, Tuple{Float64, Float64}}[]
     # for (cx, cy) ∈ list_centers
@@ -344,7 +346,7 @@ function init_qp_green_fft_BIE(params::NamedTuple, grid_size::Union{Integer, Tup
         cx, cy = list_centers[idx]
 
         off = (idx - 1) * 2 * N + 1
-        b = generate_rhs_test(N, t, fft_cache_BIE, R, cx, cy, ifft_nonuniform, off)
+        b = generate_rhs_nufft(N, t, fft_cache_BIE, R, cx, cy, ifft_nonuniform, off)
 
         phi = A_inv * b
         phi_list[idx] = prefac .* phi

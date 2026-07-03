@@ -6,6 +6,15 @@
 Calculate the function Φ (removal of the singularity in the Fourier space in the case where you use
 the Hankel function directly and not its asymptotic form).
 """
+function Φ(x, x_norm, k, cache_x1::IntegrationCache, cache_x2::IntegrationCache)
+    return -2 * k * Bessels.hankelh1(1, k * x_norm) *
+           (x[1] / x_norm * Yε_1st_der(x[1], cache_x1) * Yε(x[2], cache_x2) +
+            x[2] / x_norm * Yε(x[1], cache_x1) * Yε_1st_der(x[2], cache_x2)) +
+           Bessels.hankelh1(0, k * x_norm) * (Yε_2nd_der(x[1], cache_x1) * Yε(x[2], cache_x2) +
+            Yε(x[1], cache_x1) * Yε_2nd_der(x[2], cache_x2))
+end
+
+
 function Φ(x, k, cache::IntegrationCache)
     return -2 * k * Bessels.hankelh1(1, k * x) * Yε_1st_der(x, cache) +
            Bessels.hankelh1(0, k * x) * (Yε_1st_der(x, cache) / x + Yε_2nd_der(x, cache))
@@ -98,30 +107,50 @@ Mutating function that computes the Fourier coefficients `K̂ⱼ`.
 
   - The Fourier coefficients `K̂ⱼ`.
 """
-function get_K̂ⱼ!(K̂ⱼ, params::NamedTuple, N, i, fft_cache::FFTCache{T}, cache::IntegrationCache, p) where {T}
+function get_K̂ⱼ!(K̂ⱼ, params::NamedTuple, M, i, fft_cache::FFTCache{T}, cache::IntegrationCache, p) where {T}
 
     α, k, c̃ = (params.alpha, params.k, params.c_tilde)
 
-    αₙ = α + fft_cache.j_idx[i]
+    αₙ = α + fft_cache.j1_idx[i]
     βₙ = abs(αₙ) <= k ? Complex{T}(√(k^2 - αₙ^2)) : im * √(αₙ^2 - k^2)
 
     fft_cache.eval_int_fft_1D .= integrand_fourier_fft_1D.(fft_cache.t_j_fft, βₙ, Ref(cache))
-    fft_cache.eval_int_fft_1D[1:N] .= zero(Complex{T})
+    fft_cache.eval_int_fft_1D[1:M] .= zero(Complex{T})
     @views fftshift!(fft_cache.shift_sample_eval_int, fft_cache.eval_int_fft_1D[1:(end - 1)])
     fft_cache.fft_eval .= p * fft_cache.shift_sample_eval_int
     fftshift!(fft_cache.shift_fft_1d, fft_cache.fft_eval)
     fft_cache.fft_eval_flipped .= transpose(fft_cache.shift_fft_1d)
     reverse!(fft_cache.fft_eval_flipped)
 
-    @views integral_1 = fft_cache.shift_fft_1d[(N ÷ 2 + 1):(N ÷ 2 + N)]
-    integral_1 .*= c̃ / N
+    @views integral_1 = fft_cache.shift_fft_1d[(M ÷ 2 + 1):(M ÷ 2 + M)]
+    integral_1 .*= c̃ / M
 
-    @views integral_2 = fft_cache.fft_eval_flipped[(N ÷ 2):(N ÷ 2 + N - 1)]
-    integral_2 .*= c̃ / N
+    @views integral_2 = fft_cache.fft_eval_flipped[(M ÷ 2):(M ÷ 2 + M - 1)]
+    integral_2 .*= c̃ / M
 
-    @. K̂ⱼ = 1 / (2 * √(π * c̃)) * (1 / (αₙ^2 + (fft_cache.j_idx * π / c̃)^2 - k^2) +
-              1 / (2 * βₙ * (fft_cache.j_idx * π / c̃ - βₙ)) * integral_1 -
-              1 / (2 * βₙ * (fft_cache.j_idx * π / c̃ + βₙ)) * integral_2)
+    @. K̂ⱼ = 1 / (2 * √(π * c̃)) * (1 / (αₙ^2 + (fft_cache.j2_idx * π / c̃)^2 - k^2) +
+              1 / (2 * βₙ * (fft_cache.j2_idx * π / c̃ - βₙ)) * integral_1 -
+              1 / (2 * βₙ * (fft_cache.j2_idx * π / c̃ + βₙ)) * integral_2)
+end
+
+# function compute_K_hat(j1, j2, α, k, c_tilde, X_prime)
+function compute_K_hat(params::NamedTuple, j₂, αₙ, βₙ, cache)
+
+    k, c̃ = (params.k, params.c_tilde)
+
+    denom1 = (αₙ)^2 + (j₂ * π / c̃)^2 - k^2
+    denom2 = 2 * βₙ * (j₂ * π / c̃ - βₙ)
+    denom3 = 2 * βₙ * (j₂ * π / c̃ + βₙ)
+
+    # First integral
+    I1, _ = quadgk(x2 -> exp(im * βₙ * x2) * χ_der(x2, cache) * exp(-im * (j₂ * π / c̃) * x2), 0, c̃)
+
+    # Second integral
+    I2, _ = quadgk(x2 -> exp(im * βₙ * x2) * χ_der(x2, cache) * exp(im * (j₂ * π / c̃) * x2), 0, c̃)
+
+    K_hat = 1 / (2 * sqrt(π * c̃)) * (1 / denom1 + I1 / denom2 - I2 / denom3)
+
+    return K_hat
 end
 
 
@@ -172,6 +201,12 @@ Calculate the function `f_hankel`.
 
     - The value of the function `f_hankel` at the point `x`.
 """
+function f_hankel(x, x_norm, k, cache_x1::IntegrationCache, cache_x2::IntegrationCache)
+    bessel_term = im / 4 * hankelh1(0, k * x_norm)
+
+    bessel_term * Yε(x[1], cache_x1) * Yε(x[2], cache_x2)
+end
+
 function f_hankel(x_norm, k, cache::IntegrationCache)
     bessel_term = im / 4 * hankelh1(0, k * x_norm)
 
@@ -428,6 +463,25 @@ function get_t(x)
     t
 end
 
+function get_t_with_shift(x)
+
+    n = floor(Int, (x + π) / (2 * π))
+    t = x - 2 * n * π
+
+    # Ensure t is in the range [-π, π[
+    if t ≥ π
+        t -= 2π
+        n += 1
+    elseif t < -π
+        t += 2π
+        n -= 1
+    end
+
+    @assert x == 2 * n * π + t&&-π <= t < π "Error finding t in get_t"
+
+    t, n
+end
+
 """
     rfftshift_normalization!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
 
@@ -447,15 +501,15 @@ end
 Internal helper for processing a single frequency component during quasi-periodic Green's function computation.
 Handles coefficient calculations and frequency index mapping for position `i` in the FFT grid.
 """
-function process_frequency_component!(i, N, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
-    j₁ = fft_cache.j_idx[i]
+function process_frequency_component!(i, M, params, fft_cache, χ_cache, fft_plan, K̂ⱼ)
+    j₁ = fft_cache.j1_idx[i]
 
     # Compute K̂ⱼ coefficients
-    @views get_K̂ⱼ!(K̂ⱼ[:, i], params, N, i, fft_cache, χ_cache, fft_plan)
+    @views get_K̂ⱼ!(K̂ⱼ[i, :], params, M, i, fft_cache, χ_cache, fft_plan)
 
     # Determine frequency index handling
-    freq_idx = i > N ÷ 2 + 1 ? N - i + 2 : i
-    use_conj = i > N ÷ 2 + 1
+    freq_idx = i > M ÷ 2 + 1 ? M - i + 2 : i
+    use_conj = i > M ÷ 2 + 1
     return j₁, freq_idx, use_conj
 end
 

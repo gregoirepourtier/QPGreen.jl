@@ -10,6 +10,10 @@ using Interpolations
 using DocStringExtensions
 using Polyester
 using StaticArrays
+using SparseArrays
+using FourierSeriesEvaluators
+using NonuniformFFTs
+using QuadGK
 
 using .MathConstants: eulergamma
 
@@ -30,6 +34,10 @@ export hess_qp_green, hess_smooth_qp_green
 include("cutoff_functions.jl")
 include("qp_fft_helpers.jl")
 
+include("bie_utils.jl")
+include("bie.jl")
+
 include("api_asymptotic.jl")
+include("api_experimental.jl")
 
 end # module

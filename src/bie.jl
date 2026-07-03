@@ -70,7 +70,7 @@ function evaluate_potential_BIE(k, N, xt1, xt2, phi, bd_pts)
         x1, x2 = bd_pts[j]
         r = sqrt((xt1 - x1)^2 + (xt2 - x2)^2)
 
-        y += Bessels.besselh(0, 1, k * r) * phi[j]
+        y += hankelh1(0, k * r) * phi[j]
     end
     y
 end

@@ -363,11 +363,11 @@ function init_qp_green_fft_BIE(params::NamedTuple, grid_size::Union{Integer, Tup
 end
 
 """
-    eval_qp_green_bie(x, params::NamedTuple, cache_bie; nb_terms=40)
+    eval_qp_green_bie(x, params::NamedTuple, cache_bie; nb_terms=50)
 
 Evaluate the quasi-periodic Green's function at a point `x` using the FFT-BIE-based approach for points inside the domain `D_c` and the eigenfunction expansion for points outside.
 """
-function eval_qp_green_bie(x, params::NamedTuple, cache_bie; nb_terms=40)
+function eval_qp_green_bie(x, params::NamedTuple, cache_bie; nb_terms=50)
 
     α, k, c = (params.alpha, params.k, params.c)
     N, bd_pts_list, phi_list, list_centers = cache_bie
@@ -376,7 +376,7 @@ function eval_qp_green_bie(x, params::NamedTuple, cache_bie; nb_terms=40)
     if abs(x[2]) > c
         return eigfunc_expansion(x, params; nb_terms=nb_terms)
     else
-        t_period = get_t(x[1])
+        t_period, n = get_t_with_shift(x[1])
 
         x_norm = sqrt(t_period^2 + x[2]^2)
 
@@ -384,7 +384,34 @@ function eval_qp_green_bie(x, params::NamedTuple, cache_bie; nb_terms=40)
         bd_pts = bd_pts_list[idx_circle]
         phi = phi_list[idx_circle]
 
-        return evaluate_potential_BIE(k, N, t_period, x[2], phi, bd_pts) +
-               0.25im * Bessels.hankelh1(0, k * x_norm)
+        phase = t_period == x[1] ? one(complex(α)) : exp(im * α * n * 2π)
+
+        return phase * (evaluate_potential_BIE(k, N, t_period, x[2], phi, bd_pts) + 0.25im * hankelh1(0, k * x_norm))
+    end
+end
+
+
+"""
+    eval_qp_green_bie_smooth(x, params::NamedTuple, cache_bie; nb_terms=40)
+
+Evaluate the quasi-periodic Green's function at a point `x` using the FFT-BIE-based approach for points inside the domain `D_c` and the eigenfunction expansion for points outside.
+"""
+function eval_qp_green_bie_smooth(x, params::NamedTuple, cache_bie; nb_terms=50)
+
+    k, c = (params.k, params.c)
+    N, bd_pts_list, phi_list, list_centers = cache_bie
+
+    # Check if the point is outside the domain D_c
+    if abs(x[2]) > c
+        return eigfunc_expansion(x, params; nb_terms=nb_terms) - 0.25im * Bessels.hankelh1(0, k * norm(x))
+    else
+        t_period = get_t(x[1])
+
+        idx_circle = find_closest_center(t_period, x[2], list_centers)
+        bd_pts = bd_pts_list[idx_circle]
+        phi = phi_list[idx_circle]
+
+        return evaluate_potential_BIE(k, N, t_period, x[2], phi, bd_pts)
+        # + 0.25im * Bessels.hankelh1(0, k * x_norm)
     end
 end

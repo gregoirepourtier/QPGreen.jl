@@ -330,6 +330,8 @@ function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::
     else
         t = get_t(x[1])
 
+        println("this is the value = ", t, "\n")
+
         # Bicubic Interpolation to get Lₙ(t, x₂)
         Lₙ_t_x₂ = value_interpolator(t, x[2])
 
@@ -337,11 +339,14 @@ function eval_qp_green(x, params::NamedTuple, value_interpolator::T, Yε_cache::
 
         # Get K(t, x₂)
         if x_norm <= Yε_cache.params.a
+            println("1")
             K_t_x₂ = Lₙ_t_x₂
             return exp(im * α * x[1]) * (K_t_x₂ + exp(-im * α * t) * im / 4 * hankelh1(0, k * x_norm))
         elseif x_norm >= Yε_cache.params.b
+            println("2")
             return exp(im * α * x[1]) * Lₙ_t_x₂
         else
+            println("3")
             sing = f_hankel(x_norm, k, Yε_cache)
             K_t_x₂ = Lₙ_t_x₂ + exp(-im * α * t) * sing
             return exp(im * α * x[1]) * K_t_x₂

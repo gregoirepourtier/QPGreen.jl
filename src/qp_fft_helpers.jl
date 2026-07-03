@@ -463,6 +463,25 @@ function get_t(x)
     t
 end
 
+function get_t_with_shift(x)
+
+    n = floor(Int, (x + π) / (2 * π))
+    t = x - 2 * n * π
+
+    # Ensure t is in the range [-π, π[
+    if t ≥ π
+        t -= 2π
+        n += 1
+    elseif t < -π
+        t += 2π
+        n -= 1
+    end
+
+    @assert x == 2 * n * π + t&&-π <= t < π "Error finding t in get_t"
+
+    t, n
+end
+
 """
     rfftshift_normalization!(Φ̂₁ⱼ, fft_Φ₁_eval, N, c̃)
 
